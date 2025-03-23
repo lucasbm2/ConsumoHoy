@@ -2,9 +2,9 @@
     <string name="app_name">ConsumoHoy</string>
 
     <!-- MenuScreen -->
-    <string name="prices_menu_view">Ver precios</string>
-    <string name="menu_option2">Opción 2</string>
-    <string name="menu_option3">Opción 3</string>
+    <string name="opcion_1">Ver precios</string>
+    <string name="opcion_2">Aparatos</string>
+    <string name="opcion_3">Opción 3</string>
 
     <!-- DatosPreciosScreen -->
     <string name="load_error">Error: %1$s</string>

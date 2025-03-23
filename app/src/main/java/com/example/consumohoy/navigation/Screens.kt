@@ -10,3 +10,6 @@ object MenuScreen
 
 @Serializable
 object DatosPreciosScreen
+
+@Serializable
+object ElectricityConsumption

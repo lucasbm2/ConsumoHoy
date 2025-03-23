@@ -5,7 +5,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.composecatalog.navigation.DatosPreciosScreen
+import com.example.composecatalog.navigation.ElectricityConsumption
 import com.example.composecatalog.navigation.MenuScreen
+import com.example.consumohoy.datosprecios.ConsumptionScreen
 import com.example.consumohoy.datosprecios.ScreenPriceData
 import com.example.consumohoy.datosprecios.MenuScreen
 
@@ -17,7 +19,7 @@ fun NavigationWrapper() {
     NavHost(navController = navController, startDestination = MenuScreen) {
         composable<MenuScreen> { MenuScreen(navController) }
         composable<DatosPreciosScreen> { ScreenPriceData() }
-        // composable("opcion2") {  }
+        composable<ElectricityConsumption> { ConsumptionScreen(navController) }
         // composable("opcion3") {  }
     }
 }

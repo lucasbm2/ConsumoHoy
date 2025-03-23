@@ -31,6 +31,7 @@ import com.example.consumohoy.R
 import com.example.consumohoy.conexion.DatosPreciosViewModel
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,8 +41,24 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
     val error by viewModel.error.collectAsState()
 
     LaunchedEffect(Unit) {
-        viewModel.getPrices("2024-03-22T00:00", "2024-03-22T23:59", "hour")
+        val calendar = Calendar.getInstance()
+        val currentHour = calendar.get(Calendar.HOUR_OF_DAY)
+
+        val year = calendar.get(Calendar.YEAR)
+        val month = calendar.get(Calendar.MONTH)
+        val day = calendar.get(Calendar.DAY_OF_MONTH) +1
+
+
+
+        val formattedDate = "%04d-%02d-%02d".format(year, month, day).trim()
+
+        val startDate = "${formattedDate}T00:00".trim()
+        val endDate = "${formattedDate}T23:59".trim()
+
+
+        viewModel.getPrices(startDate, endDate, "hour")
     }
+
 
     val formatterAPI = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US)
     val formatterDate = SimpleDateFormat("dd/MM/yyyy", Locale.US)
@@ -51,7 +68,7 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
 
     LaunchedEffect(datos, retryConnection) {
         if (datos == null) {
-            delay(5000) // Espera 20 segundos
+            delay(5000) // Espera 5 segundos
             if (datos == null) {
                 connectionTimedOut = true
             }
