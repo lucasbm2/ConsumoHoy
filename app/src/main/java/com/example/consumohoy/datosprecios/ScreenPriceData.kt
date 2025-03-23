@@ -31,6 +31,7 @@ import com.example.consumohoy.R
 import com.example.consumohoy.conexion.DatosPreciosViewModel
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
+import java.time.LocalDate
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,15 +40,22 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
     val datos by viewModel.datos.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    LaunchedEffect(Unit) {
-        viewModel.getPrices("2024-03-22T00:00", "2024-03-22T23:59", "hour")
+    var connectionTimedOut by remember { mutableStateOf(false) }
+    var retryConnection by remember { mutableStateOf(false) }
+
+    val today = LocalDate.now()
+    val startDate = "${today}T00:00"
+    val endDate = "${today}T23:59"
+
+    // Cargar precios al inicio o cuando se reintente
+    LaunchedEffect(retryConnection) {
+        connectionTimedOut = false
+        viewModel.getPrices(startDate, endDate, "hour")
     }
 
     val formatterAPI = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US)
     val formatterDate = SimpleDateFormat("dd/MM/yyyy", Locale.US)
     val formatterHour = SimpleDateFormat("HH:mm", Locale.US)
-    var connectionTimedOut by remember { mutableStateOf(false) }
-    var retryConnection by remember { mutableStateOf(false) }
 
     LaunchedEffect(datos, retryConnection) {
         if (datos == null) {
@@ -64,7 +72,6 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
             }
 
             //Error al cargar, conexion perdida
-
             datos == null -> {
                 if (connectionTimedOut) {
                     Column {
@@ -157,7 +164,7 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                     val parsedDateTime = formatterAPI.parse(cleanedDateTime)
                     val formattedDateTime = formatterDate.format(parsedDateTime)
                     Text(
-                        "Fecha: $formattedDateTime",
+                        "Fecha: $today",
                         style = MaterialTheme.typography.headlineMedium
                     )
                 }
