@@ -32,6 +32,7 @@ import com.example.consumohoy.conexion.DatosPreciosViewModel
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.time.LocalDate
+import java.time.LocalTime
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,9 +44,11 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
     var connectionTimedOut by remember { mutableStateOf(false) }
     var retryConnection by remember { mutableStateOf(false) }
 
-    val today = LocalDate.now()
-    val startDate = "${today}T00:00"
-    val endDate = "${today}T23:59"
+    val now = LocalTime.now()
+    val fechaBase = if (now.hour >= 20) LocalDate.now().plusDays(1) else LocalDate.now()
+    val startDate = "${fechaBase}T00:00"
+    val endDate = "${fechaBase}T23:59"
+
 
     // Cargar precios al inicio o cuando se reintente
     LaunchedEffect(retryConnection) {
@@ -164,7 +167,7 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                     val parsedDateTime = formatterAPI.parse(cleanedDateTime)
                     val formattedDateTime = formatterDate.format(parsedDateTime)
                     Text(
-                        "Fecha: $today",
+                        "Fecha: $fechaBase",
                         style = MaterialTheme.typography.headlineMedium
                     )
                 }
