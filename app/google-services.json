@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "555693144204",
+    "project_id": "consumohoy",
+    "storage_bucket": "consumohoy.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:555693144204:android:0d0b69f388c8e16f2f63a9",
+        "android_client_info": {
+          "package_name": "com.example.consumohoy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCP_SqUThlM7nXCHjYyjNR2SVAmmnZqwZc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
