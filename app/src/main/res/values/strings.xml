@@ -18,4 +18,18 @@
     <string name="hour_load_error">Error al cargar: %1$s</string>"
     <string name="connection_timed_out">Error al conectarse a internet</string>
     <string name="retry">Reintentar</string>
+    <string name="tramo_valle">Tramo valle</string>
+    <string name="tramo_llano">Tramo llano</string>
+    <string name="tramo_punta">Tramo punta</string>
+    <string name="tramo_otro">Tramo otro</string>
+    <string name="hora"> Hora</string>
+    <string name="tramo_nombre">Tramo:</string>
+    <string name="orden_hora_cronologica">Hora cronológica</string>
+    <string name="orden_hora_mas_barata">Hora más barata</string>
+    <string name="orden_hora_mas_cara">Hora más cara</string>
+    <string name="orden_solo_valle">Solo tramo valle</string>
+    <string name="orden_solo_llano">Solo tramo llano</string>
+    <string name="orden_solo_punta">Solo tramo punta</string>
+
+
 </resources>

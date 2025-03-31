@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.work.BackoffPolicy
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -71,6 +72,10 @@ class MainActivity : ComponentActivity() {
 
                 val dailyRequest = PeriodicWorkRequestBuilder<PrecioWorker>(24, TimeUnit.HOURS)
                     .setInitialDelay(initialDelay, TimeUnit.MILLISECONDS)
+                    .setBackoffCriteria(
+                        BackoffPolicy.LINEAR,  // para reintentar si falla el primer intento de coger datos
+                        15, TimeUnit.MINUTES   // mínimo permitido
+                    )
                     .setConstraints(
                         Constraints.Builder()
                             .setRequiredNetworkType(NetworkType.CONNECTED)

@@ -1,10 +1,13 @@
 package com.example.consumohoy.datosprecios
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
@@ -120,36 +123,107 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                 var selectedType by remember { mutableStateOf(allTypes.firstOrNull() ?: "") }
                 var expanded by remember { mutableStateOf(false) }
 
+                val ordenOptions = listOf(
+                    stringResource(R.string.orden_hora_cronologica),
+                    stringResource(R.string.orden_hora_mas_barata),
+                    stringResource(R.string.orden_hora_mas_cara),
+                    stringResource(R.string.orden_solo_valle),
+                    stringResource(R.string.orden_solo_llano),
+                    stringResource(R.string.orden_solo_punta)
+                )
+
+                var selectedOrden by remember { mutableStateOf(ordenOptions[0]) }
+                var ordenExpanded by remember { mutableStateOf(false) }
+
                 // Menu elegir tipo de mercado
                 //Abre y cierra menu desplegable
-                ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = !expanded }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    TextField(
+
+                    Row(
                         modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth(),
-                        readOnly = true,
-                        value = selectedType,
-                        onValueChange = {},
-                        label = { Text(stringResource(R.string.pricing_type_label)) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        colors = ExposedDropdownMenuDefaults.textFieldColors()
-                    )
-                    //Campo visual para activar menu desplegable al pulsarlo
-                    ExposedDropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        allTypes.forEach { tipo ->
-                            DropdownMenuItem(
-                                text = { Text(tipo) },
-                                onClick = {
-                                    selectedType = tipo
-                                    expanded = false
-                                }
+                        //Filtro de ordenar
+                        ExposedDropdownMenuBox(
+                            expanded = ordenExpanded,
+                            onExpandedChange = { ordenExpanded = !ordenExpanded }
+                        ) {
+                            TextField(
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .width(180.dp),
+                                readOnly = true,
+                                value = selectedOrden,
+                                onValueChange = {},
+                                label = { Text("Ordenar por") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = ordenExpanded) },
+                                colors = ExposedDropdownMenuDefaults.textFieldColors()
                             )
+                            ExposedDropdownMenu(
+                                expanded = ordenExpanded,
+                                onDismissRequest = { ordenExpanded = false }
+                            ) {
+                                ordenOptions.forEach { orden ->
+                                    DropdownMenuItem(
+                                        text = { Text(orden) },
+                                        onClick = {
+                                            selectedOrden = orden
+                                            ordenExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        // Filtro de tipo de mercado
+                        ExposedDropdownMenuBox(
+                            expanded = expanded,
+                            onExpandedChange = { expanded = !expanded }
+                        ) {
+                            TextField(
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .width(180.dp),
+                                readOnly = true,
+                                value = when (selectedType) {
+                                    "precio-mercado" -> "Mercado SPOT"
+                                    "pvpc" -> "Tarifa PVPC"
+                                    else -> selectedType
+                                },
+                                onValueChange = {},
+                                label = { Text(stringResource(R.string.pricing_type_label)) },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                colors = ExposedDropdownMenuDefaults.textFieldColors()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                allTypes.forEach { tipo ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                when (tipo) {
+                                                    "precio-mercado" -> "Mercado SPOT"
+                                                    "pvpc" -> "Tarifa PVPC"
+                                                    else -> tipo
+                                                }
+                                            )
+                                        },
+                                        onClick = {
+                                            selectedType = tipo
+                                            expanded = false
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -159,14 +233,77 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                 // Filtrar los valores del tipo de mercado seleccionado
                 val selectedPricing = datos!!.included.orEmpty().find { it.type == selectedType }
 
-                // Ordenar los valores por fecha
-                val ordenatedValues = selectedPricing?.attributes?.values?.sortedBy {
-                    //regex para eliminar segundos de la fecha
-                    val cleaned = it.datetime?.replace(Regex(":(\\d{2})$"), "$1")
-                    // parsea la fecha de cada valor
-                    val date = cleaned?.let { date -> formatterAPI.parse(date) }
-                    date
+                fun extraerHora(datetime: String?): Int {
+                    return datetime
+                        ?.substringAfter("T")
+                        ?.take(2) // más seguro que substring(0, 2)
+                        ?.toIntOrNull() ?: -1
+                }
+
+                fun obtenerTramoDesdeFecha(datetime: String?): String {
+                    if (datetime == null) return "otro"
+
+                    val clean = datetime.replace(Regex(":(\\d{2})$"), "$1")
+                    val date = try {
+                        formatterAPI.parse(clean)
+                    } catch (e: Exception) {
+                        return "otro"
+                    }
+
+                    val cal = java.util.Calendar.getInstance().apply { time = date }
+                    val hora = cal.get(java.util.Calendar.HOUR_OF_DAY)
+                    val minuto = cal.get(java.util.Calendar.MINUTE)
+
+                    val totalMinutos = hora * 60 + minuto
+
+                    return when (totalMinutos) {
+                        in 0..479 -> "valle" // 00:00–07:59
+                        in 480..599, in 840..1079, in 1320..1439 -> "llano" // 08:00–09:59, 14:00–17:59, 22:00–23:59
+                        in 600..839, in 1080..1319 -> "punta" // 10:00–13:59, 18:00–21:59
+                        else -> "otro"
+                    }
+                }
+
+                //Filtro de ordenes
+                val ordenatedValues = when (selectedOrden) {
+                    stringResource(R.string.orden_hora_mas_barata) -> selectedPricing?.attributes?.values
+                        ?.sortedBy { it.value }
+
+                    stringResource(R.string.orden_hora_mas_cara) -> selectedPricing?.attributes?.values
+                        ?.sortedByDescending { it.value }
+
+                    stringResource(R.string.orden_solo_valle) -> selectedPricing?.attributes?.values
+                        ?.filter { obtenerTramoDesdeFecha(it.datetime) == "valle" }
+                        ?.sortedBy {
+                            val date = it.datetime?.replace(Regex(":(\\d{2})$"), "$1")
+                                ?.let { d -> formatterAPI.parse(d) }
+                            date
+                        }
+
+                    stringResource(R.string.orden_solo_llano) -> selectedPricing?.attributes?.values
+                        ?.filter { obtenerTramoDesdeFecha(it.datetime) == "llano" }
+                        ?.sortedBy {
+                            val date = it.datetime?.replace(Regex(":(\\d{2})$"), "$1")
+                                ?.let { d -> formatterAPI.parse(d) }
+                            date
+                        }
+
+                    stringResource(R.string.orden_solo_punta) -> selectedPricing?.attributes?.values
+                        ?.filter { obtenerTramoDesdeFecha(it.datetime) == "punta" }
+                        ?.sortedBy {
+                            val date = it.datetime?.replace(Regex(":(\\d{2})$"), "$1")
+                                ?.let { d -> formatterAPI.parse(d) }
+                            date
+                        }
+
+                    else -> selectedPricing?.attributes?.values
+                        ?.sortedBy {
+                            val date = it.datetime?.replace(Regex(":(\\d{2})$"), "$1")?.let { dateStr -> formatterAPI.parse(dateStr) }
+                            date
+                        }
                 } ?: emptyList()
+
+
 
                 // Mostrar fecha del primer valor
                 ordenatedValues.firstOrNull()?.datetime?.let { unformattedDateTime ->

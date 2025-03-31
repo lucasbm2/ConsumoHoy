@@ -10,9 +10,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.WorkRequest
 import com.example.composecatalog.navigation.DatosPreciosScreen
 import com.example.composecatalog.navigation.ElectricityConsumption
 import com.example.consumohoy.R
+import com.example.consumohoy.firebase.PrecioWorker
 
 
 //Funcion para la pantalla de menu principal
@@ -47,6 +51,15 @@ fun MenuScreen(navController: NavHostController) {
         }) {
             Text(
                 text = stringResource(R.string.opcion_3),
+                style = MaterialTheme.typography.titleLarge
+            )
+        }
+        Button(onClick = {
+            val workRequest: WorkRequest = OneTimeWorkRequestBuilder<PrecioWorker>().build()
+            WorkManager.getInstance(navController.context).enqueue(workRequest)
+        }) {
+            Text(
+                text = "Forzar notificación ahora",
                 style = MaterialTheme.typography.titleLarge
             )
         }
