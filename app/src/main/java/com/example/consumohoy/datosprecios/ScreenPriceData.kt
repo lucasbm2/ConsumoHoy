@@ -69,6 +69,7 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
 
         Log.d("ScreenPriceData", "Pidiendo datos de fecha: $fechaStr")
 
+
         viewModel.getPrices(
             context,
             "${fechaStr}T00:00",
