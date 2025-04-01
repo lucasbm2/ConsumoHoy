@@ -1,5 +1,6 @@
 package com.example.consumohoy.datosprecios
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -52,13 +53,28 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
     val now = LocalTime.now()
     val fechaBase = if (now.hour >= 20) LocalDate.now().plusDays(1) else LocalDate.now()
 
+    fun calcularPrecioConImpuestos(valorOriginal: Double): Double {
+        val peaje = 0.05 // por ejemplo, 0.05 €/kWh = 50 €/MWh
+        val iva = 0.010   // IVA reducido del 10%
+        val baseMasPeaje = valorOriginal + (peaje * 1000) // convertimos peaje a €/MWh
+        return baseMasPeaje * (1 + iva)
+    }
 
     val context = LocalContext.current
     // Cargar precios al inicio o cuando se reintente
     LaunchedEffect(retryConnection) {
         connectionTimedOut = false
-        viewModel.getPrices(context, "2024-03-22T00:00", "2024-03-22T23:59", "hour")
 
+        val fechaStr = fechaBase.toString()
+
+        Log.d("ScreenPriceData", "Pidiendo datos de fecha: $fechaStr")
+
+        viewModel.getPrices(
+            context,
+            "${fechaStr}T00:00",
+            "${fechaStr}T23:59",
+            "hour"
+        )
     }
 
     val formatterAPI = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US)
@@ -91,10 +107,12 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                         androidx.compose.material3.Button(onClick = {
                             connectionTimedOut = false
                             retryConnection = !retryConnection
+
+                            val fechaStr = fechaBase.toString()
                             viewModel.getPrices(
                                 context,
-                                "2024-03-22T00:00",
-                                "2024-03-22T23:59",
+                                "${fechaStr}T00:00",
+                                "${fechaStr}T23:59",
                                 "hour"
                             )
 
@@ -302,6 +320,12 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                             date
                         }
                 } ?: emptyList()
+                Log.d("ScreenPriceData", "------ Comparativa con impuestos ($selectedType) ------")
+                ordenatedValues.forEach {
+                    val valorOriginal = it.value
+                    val valorFinal = calcularPrecioConImpuestos(valorOriginal)
+                    Log.d("ScreenPriceData", "Hora: ${it.datetime} - Original: ${"%.2f".format(valorOriginal)} €/MWh - Con impuestos: ${"%.2f".format(valorFinal)} €/MWh")
+                }
 
 
 
@@ -320,6 +344,7 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                 LazyColumn {
                     items(ordenatedValues) { value ->
                         val price = value.value / 1000.0 //precio en KWh
+
 
                         //regex para eliminar segundos de la hora
                         val date = value.datetime?.replace(Regex(":(\\d{2})$"), "$1")
