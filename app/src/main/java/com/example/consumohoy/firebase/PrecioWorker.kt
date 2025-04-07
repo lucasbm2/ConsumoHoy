@@ -52,9 +52,10 @@ class PrecioWorker(
                 it.attributes?.title?.contains("spot", ignoreCase = true) == true
             }?.attributes?.values?.lastOrNull()?.value?.toFloat()
 
-            val pvpcValue = included?.firstOrNull {
-                it.attributes?.title?.contains("pvpc", ignoreCase = true) == true
-            }?.attributes?.values?.lastOrNull()?.value?.toFloat()
+            //COMENTO PARA PONER LA NOTIFICACION MAS TARDE
+//            val pvpcValue = included?.firstOrNull {
+//                it.attributes?.title?.contains("pvpc", ignoreCase = true) == true
+//            }?.attributes?.values?.lastOrNull()?.value?.toFloat()
 
 
             included?.forEach {
@@ -74,10 +75,11 @@ class PrecioWorker(
 
             }
 
-            if (pvpcValue != null) {
-                NotificationHelper.showNotification(context, "Precio diario actualizado (PVPC)", "Valor: $pvpcValue €/MWh")
-                prefs.edit().putFloat("pvpc", pvpcValue).apply()
-            }
+            //COMENTO PARA PONER LA NOTIFICACION MAS TARDE
+//            if (pvpcValue != null) {
+//                NotificationHelper.showNotification(context, "Precio diario actualizado (PVPC)", "Valor: $pvpcValue €/MWh")
+//                prefs.edit().putFloat("pvpc", pvpcValue).apply()
+//            }
 
 
             Result.success()
