@@ -24,15 +24,18 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
+    //Actualizar datos automaticamente al recibir datos de la API
     val datos by viewModel.datos.collectAsState()
-    val error by viewModel.error.collectAsState()
 
+    //Si no hay respuesta, intentar de nuevo recibir los datos
     var connectionTimedOut by remember { mutableStateOf(false) }
     var retryConnection by remember { mutableStateOf(false) }
 
+    //Para que si es despues de las 20, se muestre el precio de mañana
     val now = LocalTime.now()
     val fechaBase = if (now.hour >= 20) LocalDate.now().plusDays(1) else LocalDate.now()
 
+    //Funcion para calcular el precio con impuestos
     fun calcularPrecioConImpuestos(valorOriginal: Float): Double {
         val peaje = 0.05
         val iva = 0.010
@@ -40,8 +43,10 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
         return baseMasPeaje * (1 + iva)
     }
 
+    //Context para acceder a SharedPreferences para guardar precios
     val context = LocalContext.current
 
+    //Recibir datos de la API y guardarlos en datos
     LaunchedEffect(retryConnection) {
         connectionTimedOut = false
         val fechaStr = fechaBase.toString()
@@ -54,10 +59,12 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
         )
     }
 
+    //Formato de fecha para la API
     val formatterAPI = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US)
     val formatterDate = SimpleDateFormat("dd/MM/yyyy", Locale.US)
     val formatterHour = SimpleDateFormat("HH:mm", Locale.US)
 
+    //Si no hay datos, intentar de nuevo despues de 5 segundos
     LaunchedEffect(datos, retryConnection) {
         if (datos == null) {
             delay(5000)
@@ -67,9 +74,9 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
         }
     }
 
+    //Mostrar datos de la API en pantalla
     Column(modifier = Modifier.padding(16.dp)) {
         when {
-            error != null -> Text("Error: $error")
             datos == null -> {
                 if (connectionTimedOut) {
                     Column {
@@ -95,11 +102,13 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                 val includedMutable = datos!!.included?.toMutableList() ?: mutableListOf()
 
                 val spot = includedMutable.find { it.type.contains("mercado", ignoreCase = true) }
-                val promedio = 0.06404f
 
+                //Si spot no es nulo, crear pvpc estimado para mostrar precios
+                //estimados de PVPC para el dia siguiente, ya que PVPC no se actualiza
+                //hasta pasadas las 00:00
                 if (spot != null) {
                     val lastUpdateSafe = spot.attributes.lastUpdate ?: "1970-01-01T00:00:00Z"
-
+                    val promedio = 0.06404f
                     val estimado = spot.copy(
                         id = "pvpc-estimado-from-spot",
                         type = "pvpc-estimado",
@@ -121,13 +130,12 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                 }
 
 
-
                 Log.d("ScreenPriceData", "🔍 Tipo spot detectado: ${spot?.type}")
                 Log.d("ScreenPriceData", "🔍 Título spot: ${spot?.attributes?.title}")
                 Log.d("ScreenPriceData", "🔍 Valores spot: ${spot?.attributes?.values?.size} items")
 
 
-
+                //Si hay pvpc en SharedPreferences, cargarlo en included para mostrar en pantalla
                 val prefs = context.getSharedPreferences("precios", Context.MODE_PRIVATE)
                 val pvpcEstimadoJson = prefs.getString("pvpc_estimado_json", null)
                 if (pvpcEstimadoJson != null) {
@@ -140,15 +148,17 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                     }
                 }
 
+                //Obtener todos los tipos de precios disponibles
                 val allTypes = includedMutable.map { it.type }.toSet()
                 includedMutable.forEach {
                     Log.d("DEBUG", "Tipo incluido: ${it.type}")
                 }
 
-                val nowTime = LocalTime.now()
+                //Filtrar si hay pvpc y pvpc-estimado
                 val hasPvpc = allTypes.contains("pvpc")
                 val hasPvpcEstimado = allTypes.contains("pvpc-estimado")
 
+                //Esto para que se muestre el correcto en funcion de si hay pvpc o no
                 val defaultType = when {
                     hasPvpcEstimado -> "pvpc-estimado"
                     hasPvpc -> "pvpc"
@@ -158,6 +168,7 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                 var selectedType by remember { mutableStateOf(defaultType) }
                 var expanded by remember { mutableStateOf(false) }
 
+                //Seleccionar un filtro por el que mostrar los datos
                 val ordenOptions = listOf(
                     stringResource(R.string.orden_hora_cronologica),
                     stringResource(R.string.orden_hora_mas_barata),
@@ -258,13 +269,7 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                 val selectedPricing = includedMutable.find { it.type == selectedType }
 
 
-                fun extraerHora(datetime: String?): Int {
-                    return datetime
-                        ?.substringAfter("T")
-                        ?.take(2) // más seguro que substring(0, 2)
-                        ?.toIntOrNull() ?: -1
-                }
-
+                //Para saber el tramo de la hora desde la fecha
                 fun obtenerTramoDesdeFecha(datetime: String?): String {
                     if (datetime == null) return "otro"
 
@@ -289,7 +294,7 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                     }
                 }
 
-                //Filtro de ordenes
+                //Filtro de ordenar por parametros
                 val ordenatedValues = when (selectedOrden) {
                     stringResource(R.string.orden_hora_mas_barata) -> selectedPricing?.attributes?.values
                         ?.sortedBy { it.value }
@@ -327,7 +332,7 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                             date
                         }
                 } ?: emptyList()
-                Log.d("ScreenPriceData", "------ Comparativa con impuestos ($selectedType) ------")
+                Log.d("ScreenPriceData", "------ Comparado con impuestos ($selectedType) ------")
                 ordenatedValues.forEach {
                     val valorOriginal = it.value
                     val valorFinal = calcularPrecioConImpuestos(valorOriginal)
@@ -341,12 +346,13 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                     //regex para eliminar segundos de la fecha.-
                     val cleanedDateTime = unformattedDateTime.replace(Regex(":(\\d{2})$"), "$1")
                     val parsedDateTime = formatterAPI.parse(cleanedDateTime)
-                    val formattedDateTime = formatterDate.format(parsedDateTime)
+                    formatterDate.format(parsedDateTime)
                     Text(
                         "Fecha: $fechaBase",
                         style = MaterialTheme.typography.headlineMedium
                     )
                 }
+
 
                 LazyColumn {
                     items(ordenatedValues) { value ->

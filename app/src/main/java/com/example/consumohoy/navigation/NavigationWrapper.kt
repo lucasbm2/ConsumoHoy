@@ -7,11 +7,10 @@ import androidx.navigation.compose.rememberNavController
 import com.example.composecatalog.navigation.DatosPreciosScreen
 import com.example.composecatalog.navigation.ElectricityConsumption
 import com.example.composecatalog.navigation.MenuScreen
-import com.example.consumohoy.datosprecios.ConsumptionScreen
 import com.example.consumohoy.datosprecios.ScreenPriceData
 import com.example.consumohoy.datosprecios.MenuScreen
 
-//Funcion para la navegacion
+//Funcion para la navegacion de pantallas
 @Composable
 fun NavigationWrapper() {
     val navController = rememberNavController()
@@ -19,7 +18,6 @@ fun NavigationWrapper() {
     NavHost(navController = navController, startDestination = MenuScreen) {
         composable<MenuScreen> { MenuScreen(navController) }
         composable<DatosPreciosScreen> { ScreenPriceData() }
-        composable<ElectricityConsumption> { ConsumptionScreen(navController) }
         // composable("opcion3") {  }
     }
 }

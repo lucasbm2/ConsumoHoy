@@ -8,38 +8,30 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.consumohoy.conexion.RetrofitClient
 import com.example.consumohoy.entities.Included
-import com.example.consumohoy.entities.Attributes
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
+// Clase para actualizar precios en segundo plano gracias a WorkManager y Coroutines
 class PrecioWorker(
     private val context: Context,
     workerParams: WorkerParameters
 ) : CoroutineWorker(context, workerParams) {
 
+    //Propiedades para acceder a SharedPreferences que es donde se guardan los precios
+    val prefs = context.getSharedPreferences("precios", Context.MODE_PRIVATE)
+
+    //Aqui se hace la llamada a la API para obtener los precios
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     override suspend fun doWork(): Result {
         return try {
-            val now = ZonedDateTime.now(ZoneId.systemDefault())
-
-            //USAR ESTIMACION PVPC
-            val before20_30 = now.hour < 20 || (now.hour == 20 && now.minute < 30)
-
 // Si es antes de las 20:30, estimamos el día siguiente
 // Si es después, intentamos obtener PVPC real para ese día
             val fechaBase = LocalDate.now().plusDays(1)
-
-// A partir de las 00:00 del día siguiente, ya usamos PVPC real si está disponible
-            val forceRevisionPVPC = LocalDate.now() == fechaBase
-
-            Log.i("PrecioWorker", "🕒 Hora actual: ${now.hour}:${now.minute}")
-            Log.i("PrecioWorker", "📅 Fecha base seleccionada: $fechaBase")
-            Log.i("PrecioWorker", "🔁 ¿Forzar revisión PVPC real? $forceRevisionPVPC")
-            //USAR ESTIMACION PVPC
 
 
             Log.i("PrecioWorker", "Intentando obtener precios para la fecha: $fechaBase")
@@ -50,12 +42,14 @@ class PrecioWorker(
             val startDate = startDateTime.atZone(ZoneId.systemDefault()).format(formatter)
             val endDate = endDateTime.atZone(ZoneId.systemDefault()).format(formatter)
 
+            //Respuesta que devuelve la API con todos los datos del dia
             val response = RetrofitClient.apiService.obtenerPrecios(
                 startDate = startDate,
                 endDate = endDate,
                 timeTrunc = "hour"
             )
 
+            //Guardamos los datos en SharedPreferences para acceder a ellos en otras pantallas
             val included = response.included
 
             //////CALCULAR PROMEDIO PRECIO PVPC AUN SIN ACTUALIZAR
@@ -64,23 +58,27 @@ class PrecioWorker(
 // Convertimos included a mutable para poder modificarlo si es necesario
             val includedMutable = included?.toMutableList() ?: mutableListOf()
 
-
+            //SpotItem es el precio del mercado mayorista (SPOT)
             val spotItem = includedMutable.firstOrNull {
                 it.attributes?.title?.contains("spot", ignoreCase = true) == true
             }
+
+            // SpotValores es la lista horaria de precios del mercado mayorista (SPOT)
             val spotValores = spotItem?.attributes?.values
 
+            //PVPCValores es la lista horaria de precios del PVPC
             var pvpcValores = includedMutable.firstOrNull {
                 it.attributes?.title?.contains("pvpc", ignoreCase = true) == true
             }?.attributes?.values
 
-// Si no hay PVPC real, creamos uno estimado y lo metemos en included
+            // Si no hay PVPC real, creamos uno estimado y lo metemos en included
             if (pvpcValores.isNullOrEmpty() && spotValores != null && spotItem != null) {
                 val valoresEstimados = spotValores.map {
                     it.copy(value = it.value.toFloat() + diferenciaMedia)
                 }
 
-                // Creamos un nuevo Included simulado tipo PVPC
+                // Creamos un nuevo Included simulado tipo PVPC (ahora pvpc estimado)
+                //Para añadirlo a Included y guardarlo en SharedPreferences para acceder a él en otras pantallas
                 val pvpcEstimado = Included(
                     id = "9999",
                     type = "pvpc-estimado",
@@ -89,14 +87,14 @@ class PrecioWorker(
                         values = valoresEstimados
                     )
                 )
-
-
+                // Añadimos el nuevo Included a la lista
                 includedMutable.add(pvpcEstimado)
+
+
                 Log.i("PrecioWorker", "🟡 PVPC estimado añadido a included")
 
 // Guardar en SharedPreferences
                 val gson = com.google.gson.Gson()
-                val prefs = context.getSharedPreferences("precios", Context.MODE_PRIVATE)
                 val pvpcJson = gson.toJson(pvpcEstimado)
                 prefs.edit().putString("pvpc_estimado_json", pvpcJson).apply()
 
@@ -107,66 +105,59 @@ class PrecioWorker(
                 pvpcValores = valoresEstimados
             }
 
-            val listaEstimaciones = mutableMapOf<String, Float>()
-
-            if (!pvpcValores.isNullOrEmpty() && forceRevisionPVPC) {
-                // Si ya tenemos los datos reales del PVPC, los usamos
-                pvpcValores.forEach { valor ->
-                    listaEstimaciones[valor.datetime] = valor.value.toFloat()
-                }
-                Log.i("PrecioWorker", "🔵 Usando datos REALES de PVPC")
-            } else {
-                // Si NO tenemos PVPC, lo estimamos sumando al SPOT
-                spotValores?.forEach { valor ->
-                    val estimado = valor.value.toFloat() + diferenciaMedia
-                    listaEstimaciones[valor.datetime] = estimado
-                }
-                Log.i("PrecioWorker", "🟡 Usando ESTIMACIÓN de PVPC con +$diferenciaMedia €/MWh")
-            }
-
-            Log.i("PrecioWorker", "🔍 SPOT horas: ${spotValores?.size ?: 0}")
-            Log.i("PrecioWorker", "🔍 PVPC horas: ${pvpcValores?.size ?: 0}")
-
-
-            //////CALCULAR PROMEDIO PRECIO PVPC AUN SIN ACTUALIZAR
-
+            //SpotValue es el precio del mercado mayorista (SPOT) en el momento
             val spotValue = included?.firstOrNull {
                 it.attributes?.title?.contains("spot", ignoreCase = true) == true
             }?.attributes?.values?.lastOrNull()?.value?.toFloat()
+            val rawSpotDatetime = spotValores?.lastOrNull()?.datetime
 
-            //COMENTO PARA PONER LA NOTIFICACION MAS TARDE
-//            val pvpcValue = included?.firstOrNull {
-//                it.attributes?.title?.contains("pvpc", ignoreCase = true) == true
-//            }?.attributes?.values?.lastOrNull()?.value?.toFloat()
-
-
-            included?.forEach {
-                Log.i("PrecioWorker", "ID encontrado en included: ${it.id}")
-            }
-            included?.forEach {
-                Log.i("PrecioWorker", "ID: ${it.id}, title: ${it.attributes?.title}, type: ${it.type}")
+// Formatear la fecha SPOT al estilo dd-MM-yyyy
+            val spotFechaFormateada = try {
+                val inputFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+                val outputFormat = java.text.SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
+                val fecha = inputFormat.parse(rawSpotDatetime?.replace("Z", "") ?: "")
+                outputFormat.format(fecha ?: "")
+            } catch (e: Exception) {
+                "fecha desconocida"
             }
 
-            val prefs = context.getSharedPreferences("precios", Context.MODE_PRIVATE)
-
-
-
+            //Si no hay precios de SPOT, no lanzamos notificacion
             if (spotValue != null) {
-                NotificationHelper.showNotification(context, "Precio diario actualizado (SPOT)", "Valor: $spotValue €/MWh")
+                NotificationHelper.showNotification(
+                    context,
+                    "Precio diario actualizado (SPOT)",
+                    "Datos de: $spotFechaFormateada"
+                )
                 prefs.edit().putFloat("spot", spotValue).apply()
+            }
 
+            // PVPCValue es el último precio del PVPC (estimado o real)
+            val pvpcValue = pvpcValores?.lastOrNull()?.value?.toFloat()
+            val rawDatetime = pvpcValores?.lastOrNull()?.datetime
+
+            val fechaFormateada = try {
+                val inputFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+                val outputFormat = java.text.SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
+                val fecha = inputFormat.parse(rawDatetime?.replace("Z", "") ?: "")
+                outputFormat.format(fecha ?: "")
+            } catch (e: Exception) {
+                "fecha desconocida"
+            }
+
+            if (pvpcValue != null) {
+                NotificationHelper.showNotification(
+                    context,
+                    "Precio diario actualizado (PVPC)",
+                    "Datos de: $fechaFormateada"
+                )
+                prefs.edit().putFloat("pvpc", pvpcValue).apply()
             }
 
 
-            //COMENTO PARA PONER LA NOTIFICACION MAS TARDE
-//            if (pvpcValue != null) {
-//                NotificationHelper.showNotification(context, "Precio diario actualizado (PVPC)", "Valor: $pvpcValue €/MWh")
-//                prefs.edit().putFloat("pvpc", pvpcValue).apply()
-//            }
-
-
+            //Result es el resultado de la llamada a la API
             Result.success()
 
+            //Si hay error, intentarlo de nuevo
         } catch (e: Exception) {
             e.printStackTrace()
             Result.retry()

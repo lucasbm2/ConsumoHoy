@@ -30,7 +30,6 @@ fun MenuScreen(navController: NavHostController) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Button(onClick = {
-            // Acción opción 1
             navController.navigate(DatosPreciosScreen)
         }) {
             Text(
@@ -58,6 +57,7 @@ fun MenuScreen(navController: NavHostController) {
             val workRequest: WorkRequest = OneTimeWorkRequestBuilder<PrecioWorker>().build()
             WorkManager.getInstance(navController.context).enqueue(workRequest)
         }) {
+            //Para probar la notificacion
             Text(
                 text = "Forzar notificación ahora",
                 style = MaterialTheme.typography.titleLarge

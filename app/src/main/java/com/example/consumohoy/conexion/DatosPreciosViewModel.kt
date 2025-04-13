@@ -11,12 +11,11 @@ import kotlinx.coroutines.launch
 
 class DatosPreciosViewModel : ViewModel() {
 
+    //Mantengo los precios recogidos de la API
     private val datosInitial = MutableStateFlow<Root?>(null)
     val datos = datosInitial.asStateFlow()
 
-    private val errorInitial = MutableStateFlow<String?>(null)
-    val error = errorInitial.asStateFlow()
-
+    //Pido precios a la API con Retrofit y si funciona bien guardo en datosInitial
     fun getPrices(context: Context, startDate: String, endDate: String, timeTrunc: String) {
         viewModelScope.launch {
             runCatching {
@@ -40,7 +39,7 @@ class DatosPreciosViewModel : ViewModel() {
                         ?.substring(0, 2)
                         ?.toIntOrNull() ?: 0
 
-                    // Peaje por franja horaria (simplificado)
+                    // Cálculo del peaje por franja horaria
                     val peaje = when (hora) {
                         in 0..7 -> 0.030f     // Valle
                         in 8..9, in 14..17, in 22..23 -> 0.045f // Llano
@@ -48,21 +47,23 @@ class DatosPreciosViewModel : ViewModel() {
                         else -> 0.045f
                     }
 
+
                     val margen = 0.001f // Comercializador
 
                     val spotFinal = spotValue?.plus(peaje)?.plus(margen)
 
-                    // Igual para PVPC si lo deseas
-                    val pvpcRaw = included
+                    // Igual para PVPC
+                    val pvpcPrim = included
                         ?.firstOrNull { it.id.contains("pvpcValue") }
                         ?.attributes?.values?.lastOrNull()
 
-                    val pvpcValue = pvpcRaw?.value?.toFloat()?.div(1000) // €/kWh
+                    val pvpcValue = pvpcPrim?.value?.toFloat()?.div(1000) // €/kWh
 
                     val prefs = context.getSharedPreferences("precios", Context.MODE_PRIVATE)
                     val lastSpot = prefs.getFloat("spot", -1f)
                     val lastPvpc = prefs.getFloat("pvpc", -1f)
 
+                    //Detecto si el precio SPOT ha cambiado desde el ultimo guardado
                     @Suppress("MissingPermission")
                     if (spotFinal != null && spotFinal != lastSpot) {
                         NotificationHelper.showNotification(
@@ -73,6 +74,7 @@ class DatosPreciosViewModel : ViewModel() {
                         prefs.edit().putFloat("spot", spotFinal).apply()
                     }
 
+                    //Detecto si el precio PVPC ha cambiado desde el ultimo guardado
                     @Suppress("MissingPermission")
                     if (pvpcValue != null && pvpcValue != lastPvpc) {
                         NotificationHelper.showNotification(
