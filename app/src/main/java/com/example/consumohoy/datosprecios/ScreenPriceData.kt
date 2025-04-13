@@ -101,6 +101,13 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
 
                 val includedMutable = datos!!.included?.toMutableList() ?: mutableListOf()
 
+                val ahora = LocalTime.now()
+
+                // Filtramos el tipo 'pvpc-estimado' si aún no es después de las 20:00
+                val tiposFiltrados = includedMutable.filterNot {
+                    it.type == "pvpc-estimado" && ahora.isBefore(LocalTime.of(20, 0))
+                }
+
                 val spot = includedMutable.find { it.type.contains("mercado", ignoreCase = true) }
 
                 //Si spot no es nulo, crear pvpc estimado para mostrar precios
@@ -149,8 +156,8 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                 }
 
                 //Obtener todos los tipos de precios disponibles
-                val allTypes = includedMutable.map { it.type }.toSet()
-                includedMutable.forEach {
+                val allTypes = tiposFiltrados.map { it.type }.toSet()
+                tiposFiltrados.forEach {
                     Log.d("DEBUG", "Tipo incluido: ${it.type}")
                 }
 
@@ -266,7 +273,7 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Filtrar los valores del tipo de mercado seleccionado
-                val selectedPricing = includedMutable.find { it.type == selectedType }
+                val selectedPricing = tiposFiltrados.find { it.type == selectedType }
 
 
                 //Para saber el tramo de la hora desde la fecha
