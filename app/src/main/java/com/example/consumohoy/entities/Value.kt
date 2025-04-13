@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class Value(
-    val value: Double,
+    val value: Float,
     val percentage: Double,
     val datetime: String
 )

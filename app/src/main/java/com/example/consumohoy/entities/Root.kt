@@ -5,5 +5,5 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class Root(
     val data: Data,
-    val included: List<Included>? = null
+    var included: List<Included>? = null
 )

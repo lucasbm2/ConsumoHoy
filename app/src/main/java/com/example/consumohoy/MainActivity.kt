@@ -20,11 +20,14 @@ import com.google.firebase.messaging.FirebaseMessaging
 import java.util.concurrent.TimeUnit
 import androidx.work.Constraints
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val workRequest = OneTimeWorkRequestBuilder<PrecioWorker>().build()
+        WorkManager.getInstance(this).enqueue(workRequest)
 
         NotificationHelper.createChannel(this)
 

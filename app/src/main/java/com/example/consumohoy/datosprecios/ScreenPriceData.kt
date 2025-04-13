@@ -1,32 +1,12 @@
 package com.example.consumohoy.datosprecios
 
+import android.content.Context
 import android.util.Log
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -53,23 +33,19 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
     val now = LocalTime.now()
     val fechaBase = if (now.hour >= 20) LocalDate.now().plusDays(1) else LocalDate.now()
 
-    fun calcularPrecioConImpuestos(valorOriginal: Double): Double {
-        val peaje = 0.05 // por ejemplo, 0.05 €/kWh = 50 €/MWh
-        val iva = 0.010   // IVA reducido del 10%
-        val baseMasPeaje = valorOriginal + (peaje * 1000) // convertimos peaje a €/MWh
+    fun calcularPrecioConImpuestos(valorOriginal: Float): Double {
+        val peaje = 0.05
+        val iva = 0.010
+        val baseMasPeaje = valorOriginal + (peaje * 1000)
         return baseMasPeaje * (1 + iva)
     }
 
     val context = LocalContext.current
-    // Cargar precios al inicio o cuando se reintente
+
     LaunchedEffect(retryConnection) {
         connectionTimedOut = false
-
         val fechaStr = fechaBase.toString()
-
         Log.d("ScreenPriceData", "Pidiendo datos de fecha: $fechaStr")
-
-
         viewModel.getPrices(
             context,
             "${fechaStr}T00:00",
@@ -84,39 +60,26 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
 
     LaunchedEffect(datos, retryConnection) {
         if (datos == null) {
-            delay(5000) // Espera 20 segundos
+            delay(5000)
             if (datos == null) {
                 connectionTimedOut = true
             }
         }
     }
+
     Column(modifier = Modifier.padding(16.dp)) {
         when {
-            error != null -> {
-                Text("Error: $error")
-            }
-
-            //Error al cargar, conexion perdida
+            error != null -> Text("Error: $error")
             datos == null -> {
                 if (connectionTimedOut) {
                     Column {
-                        Text(
-                            text = stringResource(R.string.connection_timed_out),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
+                        Text(stringResource(R.string.connection_timed_out), style = MaterialTheme.typography.bodyLarge)
                         Spacer(modifier = Modifier.height(8.dp))
-                        androidx.compose.material3.Button(onClick = {
+                        Button(onClick = {
                             connectionTimedOut = false
                             retryConnection = !retryConnection
-
                             val fechaStr = fechaBase.toString()
-                            viewModel.getPrices(
-                                context,
-                                "${fechaStr}T00:00",
-                                "${fechaStr}T23:59",
-                                "hour"
-                            )
-
+                            viewModel.getPrices(context, "${fechaStr}T00:00", "${fechaStr}T23:59", "hour")
                         }) {
                             Text(text = stringResource(R.string.retry))
                         }
@@ -125,21 +88,74 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                     Text(text = stringResource(R.string.loading_data))
                 }
             }
-
-
             else -> {
                 val titlePrincipal = datos!!.data.attributes.title
                 Text(titlePrincipal, style = MaterialTheme.typography.titleLarge)
 
-                // Obtener todos los tipos de tarifas disponibles
-                val allTypes = mutableSetOf<String>()
-                datos?.included?.let { includedList ->
-                    for (item in includedList) {
-                        allTypes.add(item.type)
+                val includedMutable = datos!!.included?.toMutableList() ?: mutableListOf()
+
+                val spot = includedMutable.find { it.type.contains("mercado", ignoreCase = true) }
+                val promedio = 0.06404f
+
+                if (spot != null) {
+                    val lastUpdateSafe = spot.attributes.lastUpdate ?: "1970-01-01T00:00:00Z"
+
+                    val estimado = spot.copy(
+                        id = "pvpc-estimado-from-spot",
+                        type = "pvpc-estimado",
+                        attributes = spot.attributes.copy(
+                            title = "Tarifa PVPC (estimado)",
+                            values = spot.attributes.values.map { valor ->
+                                valor.copy(value = (valor.value + (promedio * 1000)))
+                            },
+                            lastUpdate = lastUpdateSafe
+                        )
+                    )
+                    val yaIncluido = includedMutable.any { it.type == "pvpc-estimado" }
+                    if (!yaIncluido) {
+                        includedMutable.add(estimado)
+                        Log.d("ScreenPriceData", "🟢 PVPC estimado generado desde SPOT")
+                    }
+                } else {
+                    Log.e("ScreenPriceData", "❌ No se puede crear PVPC estimado porque spot o lastUpdate es null")
+                }
+
+
+
+                Log.d("ScreenPriceData", "🔍 Tipo spot detectado: ${spot?.type}")
+                Log.d("ScreenPriceData", "🔍 Título spot: ${spot?.attributes?.title}")
+                Log.d("ScreenPriceData", "🔍 Valores spot: ${spot?.attributes?.values?.size} items")
+
+
+
+                val prefs = context.getSharedPreferences("precios", Context.MODE_PRIVATE)
+                val pvpcEstimadoJson = prefs.getString("pvpc_estimado_json", null)
+                if (pvpcEstimadoJson != null) {
+                    val gson = com.google.gson.Gson()
+                    val pvpcEstimado = gson.fromJson(pvpcEstimadoJson, com.example.consumohoy.entities.Included::class.java)
+                    val yaIncluido = includedMutable.any { it.type == "pvpc-estimado" }
+                    if (!yaIncluido) {
+                        includedMutable.add(pvpcEstimado)
+                        Log.d("ScreenPriceData", "🟡 PVPC estimado cargado desde SharedPreferences")
                     }
                 }
 
-                var selectedType by remember { mutableStateOf(allTypes.firstOrNull() ?: "") }
+                val allTypes = includedMutable.map { it.type }.toSet()
+                includedMutable.forEach {
+                    Log.d("DEBUG", "Tipo incluido: ${it.type}")
+                }
+
+                val nowTime = LocalTime.now()
+                val hasPvpc = allTypes.contains("pvpc")
+                val hasPvpcEstimado = allTypes.contains("pvpc-estimado")
+
+                val defaultType = when {
+                    hasPvpcEstimado -> "pvpc-estimado"
+                    hasPvpc -> "pvpc"
+                    else -> allTypes.firstOrNull() ?: ""
+                }
+
+                var selectedType by remember { mutableStateOf(defaultType) }
                 var expanded by remember { mutableStateOf(false) }
 
                 val ordenOptions = listOf(
@@ -154,30 +170,20 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                 var selectedOrden by remember { mutableStateOf(ordenOptions[0]) }
                 var ordenExpanded by remember { mutableStateOf(false) }
 
-                // Menu elegir tipo de mercado
-                //Abre y cierra menu desplegable
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        //Filtro de ordenar
                         ExposedDropdownMenuBox(
                             expanded = ordenExpanded,
                             onExpandedChange = { ordenExpanded = !ordenExpanded }
                         ) {
                             TextField(
-                                modifier = Modifier
-                                    .menuAnchor()
-                                    .width(180.dp),
+                                modifier = Modifier.menuAnchor().width(180.dp),
                                 readOnly = true,
                                 value = selectedOrden,
                                 onValueChange = {},
@@ -201,19 +207,17 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                             }
                         }
 
-                        // Filtro de tipo de mercado
                         ExposedDropdownMenuBox(
                             expanded = expanded,
                             onExpandedChange = { expanded = !expanded }
                         ) {
                             TextField(
-                                modifier = Modifier
-                                    .menuAnchor()
-                                    .width(180.dp),
+                                modifier = Modifier.menuAnchor().width(180.dp),
                                 readOnly = true,
                                 value = when (selectedType) {
                                     "precio-mercado" -> "Mercado SPOT"
                                     "pvpc" -> "Tarifa PVPC"
+                                    "pvpc-estimado" -> "Tarifa PVPC (estimado)"
                                     else -> selectedType
                                 },
                                 onValueChange = {},
@@ -232,6 +236,7 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                                                 when (tipo) {
                                                     "precio-mercado" -> "Mercado SPOT"
                                                     "pvpc" -> "Tarifa PVPC"
+                                                    "pvpc-estimado" -> "Tarifa PVPC (estimado)"
                                                     else -> tipo
                                                 }
                                             )
@@ -250,7 +255,8 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Filtrar los valores del tipo de mercado seleccionado
-                val selectedPricing = datos!!.included.orEmpty().find { it.type == selectedType }
+                val selectedPricing = includedMutable.find { it.type == selectedType }
+
 
                 fun extraerHora(datetime: String?): Int {
                     return datetime
