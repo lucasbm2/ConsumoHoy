@@ -96,7 +96,10 @@ class PrecioWorker(
 // Guardar en SharedPreferences
                 val gson = com.google.gson.Gson()
                 val pvpcJson = gson.toJson(pvpcEstimado)
-                prefs.edit().putString("pvpc_estimado_json", pvpcJson).apply()
+                prefs.edit()
+                    .putString("pvpc_estimado_json", pvpcJson)
+                    .putString("pvpc_estimado_fecha", fechaBase.toString())
+                    .apply()
 
                 Log.i("PrecioWorker", "🟡 PVPC estimado guardado en SharedPreferences")
 
