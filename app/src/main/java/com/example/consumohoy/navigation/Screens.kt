@@ -12,4 +12,4 @@ object MenuScreen
 object DatosPreciosScreen
 
 @Serializable
-object ElectricityConsumption
+object ConsumptionScreen

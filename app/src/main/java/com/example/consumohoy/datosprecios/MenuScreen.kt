@@ -14,7 +14,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkRequest
 import com.example.composecatalog.navigation.DatosPreciosScreen
-import com.example.composecatalog.navigation.ElectricityConsumption
+import com.example.composecatalog.navigation.ConsumptionScreen
 import com.example.consumohoy.R
 import com.example.consumohoy.firebase.PrecioWorker
 
@@ -38,7 +38,7 @@ fun MenuScreen(navController: NavHostController) {
             )
         }
         Button(onClick = {
-            navController.navigate(ElectricityConsumption)
+            navController.navigate(ConsumptionScreen)
         }) {
             Text(
                 text = stringResource(R.string.opcion_2),

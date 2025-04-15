@@ -135,14 +135,10 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                     val yaIncluido = includedMutable.any { it.type == "pvpc-estimado" }
                     if (!yaIncluido) {
                         includedMutable.add(estimado)
-                        Log.d("ScreenPriceData", "🟢 PVPC estimado generado desde SPOT")
                     }
-                } else {
-                    Log.e(
-                        "ScreenPriceData",
-                        "❌ No se puede crear PVPC estimado porque spot o lastUpdate es null"
-                    )
                 }
+
+
 // Filtramos el tipo 'pvpc-estimado' si hay pvpc real ya
                 val hayPvpcReal = includedMutable.any { inc ->
                     inc.type.equals("pvpc", ignoreCase = true) && inc.attributes.values.isNotEmpty()
@@ -153,9 +149,6 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                     it.type == "pvpc-estimado" && hayPvpcReal
                 }
 
-                Log.d("ScreenPriceData", "🔍 Tipo spot detectado: ${spot?.type}")
-                Log.d("ScreenPriceData", "🔍 Título spot: ${spot?.attributes?.title}")
-                Log.d("ScreenPriceData", "🔍 Valores spot: ${spot?.attributes?.values?.size} items")
 
 
                 //Obtener todos los tipos de precios disponibles
