@@ -13,3 +13,6 @@ object DatosPreciosScreen
 
 @Serializable
 object ConsumptionScreen
+
+@Serializable
+object OptimizationScreen

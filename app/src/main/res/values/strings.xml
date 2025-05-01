@@ -30,6 +30,7 @@
     <string name="orden_solo_valle">Solo tramo valle</string>
     <string name="orden_solo_llano">Solo tramo llano</string>
     <string name="orden_solo_punta">Solo tramo punta</string>
+        <string name="optimizacion">Optimización</string>
 
 
-</resources>
+    </resources>

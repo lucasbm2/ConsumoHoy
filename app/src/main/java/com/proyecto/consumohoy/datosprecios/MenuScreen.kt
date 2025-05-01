@@ -46,10 +46,10 @@ fun MenuScreen(navController: NavHostController) {
             )
         }
         Button(onClick = {
-            // Acción opción 3
+            navController.navigate(com.proyecto.composecatalog.navigation.OptimizationScreen)
         }) {
             Text(
-                text = stringResource(R.string.opcion_3),
+                text = stringResource(R.string.optimizacion),
                 style = MaterialTheme.typography.titleLarge
             )
         }

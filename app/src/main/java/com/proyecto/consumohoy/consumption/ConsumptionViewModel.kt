@@ -40,17 +40,31 @@ class ConsumptionViewModel(private val dao: ConsumptionDao) : ViewModel() {
     fun saveEntry() {
         val current = _uiState.value
         viewModelScope.launch {
-            dao.insert(
-                ConsumptionEntry(
-                    name = current.name,
-                    power = current.power,
-                    priority = current.priority
+            if (current.id != null) {
+                // Actualizar entrada existente
+                dao.update(
+                    ConsumptionEntry(
+                        id = current.id,
+                        name = current.name,
+                        power = current.power,
+                        priority = current.priority
+                    )
                 )
-            )
+            } else {
+                // Insertar nuevo
+                dao.insert(
+                    ConsumptionEntry(
+                        name = current.name,
+                        power = current.power,
+                        priority = current.priority
+                    )
+                )
+            }
             loadAll()
-            _uiState.value = ConsumptionUser() // Limpiar campos
+            _uiState.value = ConsumptionUser()
         }
     }
+
 
     // Borrar
     fun deleteEntry(entry: ConsumptionEntry) {
@@ -63,10 +77,10 @@ class ConsumptionViewModel(private val dao: ConsumptionDao) : ViewModel() {
     // Editar (carga los datos en el formulario para modificar)
     fun editEntry(entry: ConsumptionEntry) {
         _uiState.value = ConsumptionUser(
+            id = entry.id, // Guardamos el ID
             name = entry.name,
             power = entry.power,
             priority = entry.priority
         )
-        // ⚠️ Opcional: podrías guardar el `id` si quisieras actualizarlo luego
     }
 }
