@@ -70,11 +70,23 @@ fun OptimizationScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Precios horarios del día:",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
+                        val tipoTarifa by viewModel.tarifaFuente.collectAsState()
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Precios horarios del día",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            if (tipoTarifa.isNotBlank()) {
+                                Text(
+                                    text = "($tipoTarifa)",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.Gray
+                                )
+                            }
+                        }
+
                         Icon(
                             imageVector = if (pricesSectionExpanded) Icons.Filled.ArrowDropUp else Icons.Filled.ArrowDropDown,
                             contentDescription = if (pricesSectionExpanded) "Contraer precios" else "Desplegar precios"
@@ -139,7 +151,7 @@ fun OptimizationScreen(
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Text("Nombre: ${consumo.name}", style = MaterialTheme.typography.bodyMedium)
-                                Text("Potencia: ${consumo.power} kWh", style = MaterialTheme.typography.bodyMedium)
+                                Text("Potencia: ${consumo.power} W", style = MaterialTheme.typography.bodyMedium)
                                 Text("Prioridad: ${consumo.priority}", style = MaterialTheme.typography.bodyMedium)
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     val estrategias = listOf(
@@ -187,16 +199,21 @@ fun OptimizationScreen(
                                         }
                                     }
 
-                                    val energiaKwh = consumo.power.toFloatOrNull() ?: 0f
-                                    val mejorHora = if (energiaKwh > 0f) viewModel.calcularHoraOptimizada( estrategiaSeleccionada, consumo.priority, energiaKwh) else null
+                                    val energiaKwh = consumo.power.toFloatOrNull() ?: 0f  // ya está en kWh
+                                    val mejorHora = if (energiaKwh > 0f) viewModel.calcularHoraOptimizada(
+                                        estrategiaSeleccionada,
+                                        consumo.priority,
+                                        energiaKwh
+                                    ) else null
+
 
 
                                     if (mejorHora != null && mejorHora.isNotEmpty()) {
                                         mejorHora.forEach { (hora, coste) ->
                                             Spacer(modifier = Modifier.height(8.dp))
                                             Text(
-                                                text = "🔍 Hora sugerida: $hora (%.1f cént/h)".format((coste / energiaKwh) * 100),
-                                                style = MaterialTheme.typography.bodyMedium,
+                                                "🔍 Hora sugerida: $hora (%.1f céntimos/hora)".format(coste * 100),
+                                                        style = MaterialTheme.typography.bodyMedium,
                                                 fontWeight = FontWeight.SemiBold
                                             )
 

@@ -39,6 +39,10 @@ class OptimizationViewModel(
     private val _hourlyPricesLoading = MutableStateFlow(false)
     val hourlyPricesLoading: StateFlow<Boolean> = _hourlyPricesLoading
 
+    private val _tarifaFuente = MutableStateFlow<String>("")
+    val tarifaFuente: StateFlow<String> = _tarifaFuente
+
+
     init {
         loadConsumptions()
         loadLatestPrices()
@@ -108,49 +112,59 @@ class OptimizationViewModel(
                     timeTrunc = "hour"
                 )
 
-                // Lógica para usar SOLO PVPC reales si están disponibles
-                val pvpcReal = response.included?.firstOrNull {
-                    it.id.contains("pvpc", ignoreCase = true) || it.type.contains(
-                        "pvpc",
-                        ignoreCase = true
-                    )
+                // Debug para ver los tipos reales
+                response.included?.forEach {
+                    Log.d("DEBUG_API", "🔍 ID: ${it.id}, TYPE: ${it.type}")
                 }
+
                 val pvpcEstimado = response.included?.firstOrNull {
-                    it.id.contains(
-                        "pvpc-estimado",
-                        ignoreCase = true
-                    ) || it.type.contains("pvpc-estimado", ignoreCase = true)
+                    it.id.contains("pvpc-estimado", ignoreCase = true) || it.type.contains("pvpc-estimado", ignoreCase = true)
+                }
+
+                val pvpcReal = response.included?.firstOrNull {
+                    (it.id.contains("pvpc", ignoreCase = true) && !it.id.contains("pvpc-estimado", ignoreCase = true)) ||
+                            (it.type.contains("pvpc", ignoreCase = true) && !it.type.contains("pvpc-estimado", ignoreCase = true))
                 }
 
                 val spot = response.included?.firstOrNull {
-                    it.id.contains("spot", ignoreCase = true) || it.type.contains(
-                        "spot",
-                        ignoreCase = true
-                    )
+                    it.id.contains("spot", ignoreCase = true) || it.type.contains("spot", ignoreCase = true)
                 }
 
+                // Aquí se prioriza correctamente el orden deseado
+                val prefs = context.getSharedPreferences("precios", Context.MODE_PRIVATE)
+                val gson = com.google.gson.Gson()
+                val estimadoGuardado = prefs.getString("pvpc_estimado_json", null)?.let {
+                    gson.fromJson(it, com.proyecto.consumohoy.entities.Included::class.java)
+                }
 
                 val hourlyValues = when {
-                    pvpcReal?.attributes?.values?.isNotEmpty() == true -> {
-                        Log.d("OptimizationViewModel", "Usando precios PVPC reales de hoy")
-                        pvpcReal.attributes.values
-                    }
-
                     pvpcEstimado?.attributes?.values?.isNotEmpty() == true -> {
-                        Log.w("OptimizationViewModel", "No hay PVPC reales, usando PVPC estimado")
+                        Log.d("OptimizationViewModel", "✅ Usando PVPC ESTIMADO desde API")
+                        _tarifaFuente.value = "PVPC estimado"
                         pvpcEstimado.attributes.values
                     }
 
-                    spot?.attributes?.values?.isNotEmpty() == true -> {
-                        Log.w("OptimizationViewModel", "No hay PVPC, usando SPOT")
-                        spot.attributes.values
+                    pvpcReal?.attributes?.values?.any { it.value in 0.01..0.5 } == true -> {
+                        Log.d("OptimizationViewModel", "⚠️ Usando PVPC REAL desde API (validado)")
+                        _tarifaFuente.value = "PVPC"
+                        pvpcReal.attributes.values
                     }
 
+                    estimadoGuardado?.attributes?.values?.isNotEmpty() == true -> {
+                        Log.d("OptimizationViewModel", "🟢 Usando PVPC ESTIMADO desde SharedPreferences")
+                        _tarifaFuente.value = "PVPC-estimado"
+                        estimadoGuardado.attributes.values
+                    }
+
+
                     else -> {
-                        Log.w("OptimizationViewModel", "No se encontraron precios horarios válidos")
+                        Log.e("OptimizationViewModel", "❌ No se encontraron datos PVPC válidos")
                         emptyList()
                     }
                 }
+
+
+
 
                 _hourlyPrices.value = hourlyValues
             } catch (e: Exception) {
@@ -160,16 +174,18 @@ class OptimizationViewModel(
                 _hourlyPricesLoading.value = false
             }
         }
-
     }
+
+
     fun calcularHoraOptimizada(
         estrategia: String,
         prioridad: String,
-        kwhUso: Float
+        potenciaW: Float // 👈 ahora se pasa directamente la potencia en W
     ): List<Pair<String, Float>> {
-        // aplicar filtro de horas por prioridad
         val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US)
         val salida = DateTimeFormatter.ofPattern("HH:mm")
+
+        val consumoKwh = potenciaW / 1000f // 👈 conversión W → kWh
 
         val horasValidas = hourlyPrices.value
             .filter { value ->
@@ -186,14 +202,14 @@ class OptimizationViewModel(
 
         return when (estrategia) {
             "Hora más barata" -> horasValidas.minByOrNull { it.value }?.let {
-                listOf(salida.format(LocalDateTime.parse(it.datetime, formatter)) to (it.value / 1000f) * kwhUso)
+                listOf(salida.format(LocalDateTime.parse(it.datetime, formatter)) to (it.value / 1000f) * consumoKwh)
             } ?: emptyList()
 
             "Top 3 horas más baratas" -> horasValidas
                 .sortedBy { it.value }
                 .take(3)
                 .map {
-                    salida.format(LocalDateTime.parse(it.datetime, formatter)) to (it.value / 1000f) * kwhUso
+                    salida.format(LocalDateTime.parse(it.datetime, formatter)) to (it.value / 1000f) * consumoKwh
                 }
 
             "Hora más cercana" -> {
@@ -207,9 +223,10 @@ class OptimizationViewModel(
                     }
                     .minByOrNull { it.value }
                     ?.let {
-                        listOf(salida.format(LocalDateTime.parse(it.datetime, formatter)) to (it.value / 1000f) * kwhUso)
+                        listOf(salida.format(LocalDateTime.parse(it.datetime, formatter)) to (it.value / 1000f) * consumoKwh)
                     } ?: emptyList()
             }
+
             "Evitar horas punta (18:00–21:00)" -> horasValidas
                 .filter {
                     val hora = try {
@@ -219,7 +236,7 @@ class OptimizationViewModel(
                 }
                 .minByOrNull { it.value }
                 ?.let {
-                    listOf(salida.format(LocalDateTime.parse(it.datetime, formatter)) to (it.value / 1000f) * kwhUso)
+                    listOf(salida.format(LocalDateTime.parse(it.datetime, formatter)) to (it.value / 1000f) * consumoKwh)
                 } ?: emptyList()
 
             "2 horas baratas consecutivas" -> {
@@ -238,7 +255,7 @@ class OptimizationViewModel(
 
                 mejorVentana?.map {
                     val horaStr = salida.format(LocalDateTime.parse(it.datetime, formatter))
-                    horaStr to (it.value / 1000f) * kwhUso
+                    horaStr to (it.value / 1000f) * consumoKwh
                 } ?: emptyList()
             }
 
@@ -258,7 +275,7 @@ class OptimizationViewModel(
 
                 mejorVentana?.map {
                     val horaStr = salida.format(LocalDateTime.parse(it.datetime, formatter))
-                    horaStr to (it.value / 1000f) * kwhUso
+                    horaStr to (it.value / 1000f) * consumoKwh
                 } ?: emptyList()
             }
 
@@ -278,13 +295,13 @@ class OptimizationViewModel(
 
                 mejorVentana?.map {
                     val horaStr = salida.format(LocalDateTime.parse(it.datetime, formatter))
-                    horaStr to (it.value / 1000f) * kwhUso
+                    horaStr to (it.value / 1000f) * consumoKwh
                 } ?: emptyList()
             }
-
 
             else -> emptyList()
         }
     }
+
 
 }

@@ -132,11 +132,20 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                             lastUpdate = lastUpdateSafe
                         )
                     )
+
+// ⬇️ Añade esto inmediatamente DESPUÉS del val estimado
+                    val gson = com.google.gson.Gson()
+                    val prefs = context.getSharedPreferences("precios", Context.MODE_PRIVATE)
+                    val json = gson.toJson(estimado)
+                    prefs.edit().putString("pvpc_estimado_json", json).apply()
+                    Log.d("ScreenPriceData", "🟢 PVPC estimado guardado en SharedPreferences")
+
                     val yaIncluido = includedMutable.any { it.type == "pvpc-estimado" }
                     if (!yaIncluido) {
                         includedMutable.add(estimado)
                     }
                 }
+
 
 
 // Filtramos el tipo 'pvpc-estimado' si hay pvpc real ya

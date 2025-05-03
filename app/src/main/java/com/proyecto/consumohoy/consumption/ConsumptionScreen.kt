@@ -49,7 +49,7 @@ fun ConsumptionScreen(
                 OutlinedTextField(
                     value = uiState.power,
                     onValueChange = { viewModel.onPowerChange(it) },
-                    label = { Text("Potencia (kWh)") },
+                    label = { Text("Potencia (W)") },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -119,7 +119,7 @@ fun ConsumptionScreen(
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(12.dp)) {
                             Text("Nombre: ${consumo.name}")
-                            Text("Potencia: ${consumo.power} kWh")
+                            Text("Potencia: ${consumo.power} W")
                             Text("Prioridad: ${consumo.priority}")
 
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
