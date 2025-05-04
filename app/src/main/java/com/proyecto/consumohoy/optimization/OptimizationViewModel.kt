@@ -138,17 +138,19 @@ class OptimizationViewModel(
                 }
 
                 val hourlyValues = when {
+                    pvpcReal?.attributes?.values?.isNotEmpty() == true -> {
+                        Log.d("OptimizationViewModel", "✅ Usando PVPC REAL desde API")
+                        _tarifaFuente.value = "pvpc"
+                        pvpcReal.attributes.values
+                    }
+
                     pvpcEstimado?.attributes?.values?.isNotEmpty() == true -> {
-                        Log.d("OptimizationViewModel", "✅ Usando PVPC ESTIMADO desde API")
-                        _tarifaFuente.value = "PVPC estimado"
+                        Log.d("OptimizationViewModel", "🟡 Usando PVPC ESTIMADO desde API")
+                        _tarifaFuente.value = "pvpc-estimado"
                         pvpcEstimado.attributes.values
                     }
 
-                    pvpcReal?.attributes?.values?.any { it.value in 0.01..0.5 } == true -> {
-                        Log.d("OptimizationViewModel", "⚠️ Usando PVPC REAL desde API (validado)")
-                        _tarifaFuente.value = "PVPC"
-                        pvpcReal.attributes.values
-                    }
+
 
                     estimadoGuardado?.attributes?.values?.isNotEmpty() == true -> {
                         Log.d("OptimizationViewModel", "🟢 Usando PVPC ESTIMADO desde SharedPreferences")
@@ -156,12 +158,12 @@ class OptimizationViewModel(
                         estimadoGuardado.attributes.values
                     }
 
-
                     else -> {
                         Log.e("OptimizationViewModel", "❌ No se encontraron datos PVPC válidos")
                         emptyList()
                     }
                 }
+
 
 
 
