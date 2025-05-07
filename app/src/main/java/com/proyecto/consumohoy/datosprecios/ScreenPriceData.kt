@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.proyecto.consumohoy.R
 import com.proyecto.consumohoy.conexion.DatosPreciosViewModel
+import com.proyecto.consumohoy.entities.Value
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.time.LocalDate
@@ -363,12 +364,45 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                             date
                         }
 
-                    else -> selectedPricing?.attributes?.values
-                        ?.sortedBy {
-                            val date = it.datetime?.replace(Regex(":(\\d{2})$"), "$1")
-                                ?.let { dateStr -> formatterAPI.parse(dateStr) }
-                            date
+                    else -> {
+                        // Crear un mapa para acceder rápidamente a las horas existentes
+                        val existingHoursMap = selectedPricing?.attributes?.values?.associateBy {
+                            it.datetime?.substring(11, 13)
+                        } ?: emptyMap()
+
+                        fun createEmptyHourEntry(hour: String): Value {
+                            return Value(
+                                datetime = "${fechaBase}T${hour}:00:00.000Z",
+                                value = 0.0f,
+                                percentage = 0.0
+                            )
                         }
+
+
+                        // Verificar y agregar las horas faltantes
+                        val valuesWithMissingHours = selectedPricing?.attributes?.values?.toMutableList() ?: mutableListOf()
+                        if (!existingHoursMap.containsKey("00")) {
+                            valuesWithMissingHours.add(0, createEmptyHourEntry("00"))
+                        }
+                        if (!existingHoursMap.containsKey("01")) {
+                            valuesWithMissingHours.add(1, createEmptyHourEntry("01"))
+                        }
+
+                        valuesWithMissingHours.sortedBy {
+                            it.datetime?.substring(11, 13)?.toIntOrNull() ?: 24
+                        }.also { sortedValues ->
+                            Log.d(
+                                "ScreenPriceData",
+                                "Valores ordenados: ${sortedValues.joinToString { v -> v.datetime ?: "null" }}"
+                            )
+
+                            // Debug: Imprimir las horas después de la ordenación
+                            val horas = sortedValues.map { v ->
+                                v.datetime?.substring(11, 13)
+                            }
+                            Log.d("ScreenPriceData", "Horas después de ordenar: $horas")
+                        }
+                    }
                 } ?: emptyList()
                 Log.d("ScreenPriceData", "------ Comparado con impuestos ($selectedType) ------")
                 ordenatedValues.forEach {

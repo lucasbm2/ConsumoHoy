@@ -11,12 +11,8 @@ import kotlinx.coroutines.launch
 import android.util.Log
 import com.proyecto.consumohoy.conexion.ApiService
 import com.proyecto.consumohoy.entities.Value
-
-// Necesarios para manejar fechas y horas para la API
 import java.time.LocalDate
-import java.time.LocalTime
 import java.time.LocalDateTime
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -46,7 +42,7 @@ class OptimizationViewModel(
     init {
         loadConsumptions()
         loadLatestPrices()
-        loadHourlyPricesFromApi() // <-- Carga la lista completa de precios horarios desde la API
+        loadHourlyPrices() // <--  Ahora llama a la función unificada
     }
 
     private fun loadConsumptions() {
@@ -94,7 +90,7 @@ class OptimizationViewModel(
         }
     }
 
-    private fun loadHourlyPricesFromApi() {
+    private fun loadHourlyPrices() {
         viewModelScope.launch {
             _hourlyPricesLoading.value = true
             _hourlyPrices.value = emptyList()
@@ -103,8 +99,8 @@ class OptimizationViewModel(
                 val fechaHoy = LocalDate.now()
                 val fechaStr = fechaHoy.toString()
 
-                val startDateTime = "${fechaStr}T00:00:00Z"
-                val endDateTime = "${fechaStr}T23:59:59Z"
+                val startDateTime ="${fechaStr}T00:00"
+                val endDateTime = "${fechaStr}T23:59"
 
                 val response = apiService.obtenerPrecios(
                     startDate = startDateTime,
@@ -117,17 +113,13 @@ class OptimizationViewModel(
                     Log.d("DEBUG_API", "🔍 ID: ${it.id}, TYPE: ${it.type}")
                 }
 
-                val pvpcEstimado = response.included?.firstOrNull {
+                val pvpcEstimadoApi = response.included?.firstOrNull {
                     it.id.contains("pvpc-estimado", ignoreCase = true) || it.type.contains("pvpc-estimado", ignoreCase = true)
                 }
 
-                val pvpcReal = response.included?.firstOrNull {
+                val pvpcRealApi = response.included?.firstOrNull {
                     (it.id.contains("pvpc", ignoreCase = true) && !it.id.contains("pvpc-estimado", ignoreCase = true)) ||
                             (it.type.contains("pvpc", ignoreCase = true) && !it.type.contains("pvpc-estimado", ignoreCase = true))
-                }
-
-                val spot = response.included?.firstOrNull {
-                    it.id.contains("spot", ignoreCase = true) || it.type.contains("spot", ignoreCase = true)
                 }
 
                 // Aquí se prioriza correctamente el orden deseado
@@ -137,41 +129,47 @@ class OptimizationViewModel(
                     gson.fromJson(it, com.proyecto.consumohoy.entities.Included::class.java)
                 }
 
-                val hourlyValues = when {
-                    pvpcReal?.attributes?.values?.isNotEmpty() == true -> {
+                val (hourlyValues, fuente) = when {
+                    pvpcRealApi?.attributes?.values?.isNotEmpty() == true -> {
                         Log.d("OptimizationViewModel", "✅ Usando PVPC REAL desde API")
-                        _tarifaFuente.value = "pvpc"
-                        pvpcReal.attributes.values
+                        pvpcRealApi.attributes.values to "PVPC"
                     }
 
-                    pvpcEstimado?.attributes?.values?.isNotEmpty() == true -> {
+                    pvpcEstimadoApi?.attributes?.values?.isNotEmpty() == true -> {
                         Log.d("OptimizationViewModel", "🟡 Usando PVPC ESTIMADO desde API")
-                        _tarifaFuente.value = "pvpc-estimado"
-                        pvpcEstimado.attributes.values
+                        pvpcEstimadoApi.attributes.values to "PVPC-estimado (API)"
                     }
-
-
 
                     estimadoGuardado?.attributes?.values?.isNotEmpty() == true -> {
                         Log.d("OptimizationViewModel", "🟢 Usando PVPC ESTIMADO desde SharedPreferences")
-                        _tarifaFuente.value = "PVPC-estimado"
-                        estimadoGuardado.attributes.values
+                        estimadoGuardado.attributes.values to "PVPC-estimado (Local)"
                     }
 
                     else -> {
                         Log.e("OptimizationViewModel", "❌ No se encontraron datos PVPC válidos")
-                        emptyList()
+                        emptyList<Value>() to "Desconocido"
                     }
                 }
 
-
-
-
-
                 _hourlyPrices.value = hourlyValues
+                _tarifaFuente.value = fuente
+// --- LOGGING PARA DEPURACIÓN DETALLADA ---
+                Log.d("OptimizationViewModel", "Datos de la API recibidos:")
+                if (hourlyValues.isEmpty()) {
+                    Log.d("OptimizationViewModel", "  La lista de precios está vacía.")
+                } else {
+                    hourlyValues.forEach { value ->
+                        Log.d(
+                            "OptimizationViewModel",
+                            "  Hora: ${value.datetime}, Valor: ${value.value}, Percentage: ${value.percentage}"
+                        )
+                    }
+                }
+// --- FIN LOGGING ---
             } catch (e: Exception) {
                 Log.e("OptimizationViewModel", "Error al obtener precios horarios desde la API", e)
                 _hourlyPrices.value = emptyList()
+                _tarifaFuente.value = "Error" // O un valor por defecto que indique el error
             } finally {
                 _hourlyPricesLoading.value = false
             }
@@ -189,6 +187,7 @@ class OptimizationViewModel(
 
         val consumoKwh = potenciaW / 1000f // 👈 conversión W → kWh
 
+        val ahora = LocalDateTime.now()
         val horasValidas = hourlyPrices.value
             .filter { value ->
                 val hora = try {
@@ -215,12 +214,11 @@ class OptimizationViewModel(
                 }
 
             "Hora más cercana" -> {
-                val ahora = LocalDateTime.now().hour
                 horasValidas
                     .filter {
                         try {
                             val h = LocalDateTime.parse(it.datetime, formatter).hour
-                            h >= ahora
+                            h >= ahora.hour // Solo para "Hora más cercana"
                         } catch (e: Exception) { false }
                     }
                     .minByOrNull { it.value }
@@ -241,69 +239,42 @@ class OptimizationViewModel(
                     listOf(salida.format(LocalDateTime.parse(it.datetime, formatter)) to (it.value / 1000f) * consumoKwh)
                 } ?: emptyList()
 
-            "2 horas baratas consecutivas" -> {
-                var mejorVentana: List<Value>? = null
-                var menorSuma = Float.MAX_VALUE
+            "2 horas baratas consecutivas" -> calcularMejorVentana(horasValidas, 2, ahora, formatter, salida, consumoKwh)
 
-                val ventanas = horasValidas.windowed(2)
-                for (ventana in ventanas) {
-                    if (ventana.size < 2) continue
-                    val suma = ventana[0].value + ventana[1].value
-                    if (suma < menorSuma) {
-                        menorSuma = suma
-                        mejorVentana = ventana
-                    }
-                }
+            "3 horas baratas consecutivas" -> calcularMejorVentana(horasValidas, 3, ahora, formatter, salida, consumoKwh)
 
-                mejorVentana?.map {
-                    val horaStr = salida.format(LocalDateTime.parse(it.datetime, formatter))
-                    horaStr to (it.value / 1000f) * consumoKwh
-                } ?: emptyList()
-            }
-
-            "3 horas baratas consecutivas" -> {
-                var mejorVentana: List<Value>? = null
-                var menorSuma = Float.MAX_VALUE
-
-                val ventanas = horasValidas.windowed(3)
-                for (ventana in ventanas) {
-                    if (ventana.size < 3) continue
-                    val suma = ventana[0].value + ventana[1].value + ventana[2].value
-                    if (suma < menorSuma) {
-                        menorSuma = suma
-                        mejorVentana = ventana
-                    }
-                }
-
-                mejorVentana?.map {
-                    val horaStr = salida.format(LocalDateTime.parse(it.datetime, formatter))
-                    horaStr to (it.value / 1000f) * consumoKwh
-                } ?: emptyList()
-            }
-
-            "5 horas baratas consecutivas" -> {
-                var mejorVentana: List<Value>? = null
-                var menorSuma = Float.MAX_VALUE
-
-                val ventanas = horasValidas.windowed(5)
-                for (ventana in ventanas) {
-                    if (ventana.size < 5) continue
-                    val suma = ventana[0].value + ventana[1].value + ventana[2].value + ventana[3].value + ventana[4].value
-                    if (suma < menorSuma) {
-                        menorSuma = suma
-                        mejorVentana = ventana
-                    }
-                }
-
-                mejorVentana?.map {
-                    val horaStr = salida.format(LocalDateTime.parse(it.datetime, formatter))
-                    horaStr to (it.value / 1000f) * consumoKwh
-                } ?: emptyList()
-            }
+            "5 horas baratas consecutivas" -> calcularMejorVentana(horasValidas, 5, ahora, formatter, salida, consumoKwh)
 
             else -> emptyList()
         }
     }
 
+    // Función auxiliar para calcular las ventanas consecutivas
+    private fun calcularMejorVentana(
+        horasValidas: List<Value>,
+        ventanaSize: Int,
+        ahora: LocalDateTime,
+        formatter: DateTimeFormatter,
+        salida: DateTimeFormatter,
+        consumoKwh: Float
+    ): List<Pair<String, Float>> {
+        var mejorVentana: List<Value>? = null
+        var menorSuma = Float.MAX_VALUE
 
+        val ventanas = horasValidas.windowed(ventanaSize)
+        for (ventana in ventanas) {
+            if (ventana.size < ventanaSize) continue
+            if (LocalDateTime.parse(ventana.last().datetime, formatter) < ahora) continue // Saltar ventanas pasadas
+            val suma = ventana.sumOf { it.value.toDouble() }.toFloat()
+            if (suma < menorSuma) {
+                menorSuma = suma
+                mejorVentana = ventana
+            }
+        }
+
+        return mejorVentana?.map {
+            val horaStr = salida.format(LocalDateTime.parse(it.datetime, formatter))
+            horaStr to (it.value / 1000f) * consumoKwh
+        } ?: emptyList()
+    }
 }
