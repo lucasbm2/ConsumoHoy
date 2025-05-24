@@ -143,7 +143,7 @@ fun MenuScreen(navController: NavHostController) {
             Spacer(modifier = Modifier.height(32.dp))
 
             BotonElegante(
-                texto = "Registrar consumo",
+                texto = "Registrar aparato",
                 icono = Icons.Filled.Bolt,
                 onClick = { navController.navigate(ConsumptionScreen) }
             )
