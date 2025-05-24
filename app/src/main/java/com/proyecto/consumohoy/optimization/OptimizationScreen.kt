@@ -1,11 +1,12 @@
 package com.proyecto.consumohoy.optimization
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -15,162 +16,163 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.proyecto.consumohoy.R
 import java.text.SimpleDateFormat
-import java.util.Locale
-
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OptimizationScreen(
-    // Recibe el ViewModel como parámetro. NavigationWrapper se encargará de crearlo y pasarlo.
-    viewModel: OptimizationViewModel = viewModel()
-) {
+fun OptimizationScreen(viewModel: OptimizationViewModel = viewModel()) {
     val consumos by viewModel.consumptionList.collectAsState()
-
-    // --- Observa la lista de precios HORARIOS desde el ViewModel ---
-    val hourlyPrices by viewModel.hourlyPrices.collectAsState() // <-- Observa la lista horaria COMPLETA
-
-    // --- Estado para controlar si la sección de precios horarios está desplegada ---
-    var pricesSectionExpanded by remember { mutableStateOf(false) }
-
-    // --- Obtener los precios actuales/recentes para el cálculo rápido en las tarjetas de consumo ---
+    val hourlyPrices by viewModel.hourlyPrices.collectAsState()
     val latestPrices by viewModel.latestPrices.collectAsState()
-    val currentSpotPrice = latestPrices["SPOT"] ?: 0f
-    val currentPvpcPrice = latestPrices["PVPC"] ?: 0f
+    val tipoTarifa by viewModel.tarifaFuente.collectAsState()
 
-    // Formateador para mostrar solo la hora
     val hourFormatter = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Optimizar Consumo") }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .padding(horizontal = 16.dp)
-                .fillMaxSize()
-        ) {
+    val cardColors = listOf(
+        Color(0xFFE8F5E9), // verde claro
+        Color(0xFFE3F2FD), // azul claro
+        Color(0xFFFFF9C4), // amarillo claro / beige
+        Color(0xFFF3E5F5)  // lila claro
+    )
 
-            // --- Sección Desplegable para los Precios Horarios ---
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(
+    var pricesSectionExpanded by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(id = R.drawable.fondo_bombilla),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xCCFFFFFF)))
+
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 24.dp, bottom = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { pricesSectionExpanded = !pricesSectionExpanded }
-                            .padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .background(Color(0xFF0D47A1), shape = RoundedCornerShape(12.dp))
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
-                        val tipoTarifa by viewModel.tarifaFuente.collectAsState()
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "Precios horarios del día",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            if (tipoTarifa.isNotBlank()) {
-                                Text(
-                                    text = "($tipoTarifa)",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.Gray
-                                )
-                            }
-                        }
-
-                        Icon(
-                            imageVector = if (pricesSectionExpanded) Icons.Filled.ArrowDropUp else Icons.Filled.ArrowDropDown,
-                            contentDescription = if (pricesSectionExpanded) "Contraer precios" else "Desplegar precios"
+                        Text(
+                            text = "Optimizar Consumo",
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
+                }
+            }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .padding(padding)
+                    .padding(16.dp)
+                    .fillMaxSize()
+            ) {
+                // Sección desplegable de precios
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { pricesSectionExpanded = !pricesSectionExpanded },
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Precios horarios del día ($tipoTarifa)", fontWeight = FontWeight.Medium)
+                            Icon(
+                                imageVector = if (pricesSectionExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                                contentDescription = null
+                            )
+                        }
 
-                    AnimatedVisibility(visible = pricesSectionExpanded) {
-                        if (hourlyPrices.isEmpty()) {
-                            Text("Cargando precios horarios o no disponibles...", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 250.dp)
-                                    .padding(top = 8.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                items(hourlyPrices) { priceEntry ->
-                                    val datetime = priceEntry.datetime
-                                    val timeString = try {
-                                        val apiFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US)
-                                        val date = apiFormat.parse(datetime.replace("Z", "+0000"))
-                                        hourFormatter.format(date)
-                                    } catch (e: Exception) {
-                                        datetime
-                                    }
-                                    val pricePerKwh = priceEntry.value / 1000f
+                        AnimatedVisibility(pricesSectionExpanded) {
+                            if (hourlyPrices.isEmpty()) {
+                                Text("Cargando precios...", fontSize = 14.sp)
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 250.dp)
+                                        .padding(top = 8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    itemsIndexed(hourlyPrices) { _, price ->
+                                        val timeStr = try {
+                                            val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US)
+                                            hourFormatter.format(fmt.parse(price.datetime.replace("Z", "+0000")))
+                                        } catch (e: Exception) { price.datetime }
 
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(timeString, style = MaterialTheme.typography.bodySmall)
-                                        Text("%.3f €/kWh".format(pricePerKwh), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                                        val kwh = price.value / 1000f
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(timeStr, fontSize = 14.sp)
+                                            Text("%.3f €/kWh".format(kwh), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            // --- Sección para mostrar los Consumos Guardados ---
-            Text(
-                text = "Tus aparatos guardados:",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+                Text(
+                    text = "Tus aparatos guardados:",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
                 if (consumos.isEmpty()) {
-                    item {
-                        Text("No has añadido ningún aparato aún. Ve a 'Aparatos' para añadirlos.")
-                    }
+                    Text("No has añadido ningún aparato aún. Ve a 'Registrar aparato' para añadirlos.")
                 } else {
-                    items(consumos) { consumo ->
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text("Nombre: ${consumo.name}", style = MaterialTheme.typography.bodyMedium)
-                                Text("Potencia: ${consumo.power} W", style = MaterialTheme.typography.bodyMedium)
-                                Text("Prioridad: ${consumo.priority}", style = MaterialTheme.typography.bodyMedium)
-                                Text("Uso: ${consumo.usageMinutes} minutos", style = MaterialTheme.typography.bodyMedium)
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        itemsIndexed(consumos) { index, consumo ->
+                            val backgroundColor = cardColors[index % cardColors.size]
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = backgroundColor)
+                            ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
-                                    val estrategias = listOf(
-                                        "Hora más barata",
-                                        "Hora más cercana",
-                                        "Top 3 horas más baratas",
-                                        "Evitar horas punta (18:00–21:00)",
-                                        "2 horas baratas consecutivas",
-                                        "3 horas baratas consecutivas",
-                                        "5 horas baratas consecutivas"
-                                    )
-                                    var estrategiaSeleccionada by remember { mutableStateOf(estrategias.first()) }
-                                    var expanded by remember { mutableStateOf(false) }
+                                    Text("Nombre: ${consumo.name}")
+                                    Text("Potencia: ${consumo.power} W")
+                                    Text("Prioridad: ${consumo.priority}")
+                                    Text("Uso diario: ${consumo.usageMinutes} min")
 
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    Text("Estrategia de optimización:", style = MaterialTheme.typography.bodySmall)
+                                    Text("Estrategia de optimización:", fontSize = 14.sp)
+
+                                    var expanded by remember { mutableStateOf(false) }
+                                    val estrategias = listOf(
+                                        "Hora más cercana/barata",
+                                        "Evitar horas punta", "Hora más barata del día"
+                                    )
+                                    var seleccion by remember { mutableStateOf(estrategias.first()) }
 
                                     ExposedDropdownMenuBox(
                                         expanded = expanded,
@@ -178,14 +180,13 @@ fun OptimizationScreen(
                                     ) {
                                         OutlinedTextField(
                                             readOnly = true,
-                                            value = estrategiaSeleccionada,
+                                            value = seleccion,
                                             onValueChange = {},
                                             label = { Text("Selecciona estrategia") },
                                             modifier = Modifier
                                                 .menuAnchor()
                                                 .fillMaxWidth()
                                         )
-
                                         ExposedDropdownMenu(
                                             expanded = expanded,
                                             onDismissRequest = { expanded = false }
@@ -194,7 +195,7 @@ fun OptimizationScreen(
                                                 DropdownMenuItem(
                                                     text = { Text(opcion) },
                                                     onClick = {
-                                                        estrategiaSeleccionada = opcion
+                                                        seleccion = opcion
                                                         expanded = false
                                                     }
                                                 )
@@ -202,68 +203,69 @@ fun OptimizationScreen(
                                         }
                                     }
 
-                                    val energiaKwh = consumo.power.toFloat() ?: 0f  // ya está en kWh
-                                    val mejorHora = if (energiaKwh > 0f) viewModel.calcularHoraOptimizada(
-                                        estrategiaSeleccionada,
-                                        consumo.priority,
-                                        energiaKwh,
-                                        consumo.usageMinutes
-                                    ) else null
+                                    val energiaKwh = consumo.power
 
+                                    val resultado = if (energiaKwh > 0f)
+                                        viewModel.calcularHoraOptimizada(
+                                            seleccion,
+                                            consumo.priority,
+                                            energiaKwh,
+                                            consumo.usageMinutes
+                                        )
+                                    else null
 
+                                    Spacer(modifier = Modifier.height(8.dp))
 
-                                    if (mejorHora != null && mejorHora.isNotEmpty()) {
-                                        val costeTotal: Float = mejorHora.sumOf { it.second.toDouble() }.toFloat()
-
+                                    if (resultado.isNullOrEmpty()) {
+                                        Text("Introduce datos válidos o espera precios.")
+                                    } else {
+                                        val costeTotal = resultado.sumOf { it.second.toDouble() }.toFloat()
                                         val horaMasCara = hourlyPrices.maxByOrNull { it.value }
                                         val precioMasCaro = horaMasCara?.value ?: 0f
-                                        val consumoTotalMensual = consumo.power / 1000f * (consumo.usageMinutes / 60f) * 7 * 4 // kWh en 1 mes
 
+                                        val consumoTotalMensual = consumo.power / 1000f * (consumo.usageMinutes / 60f) * 7 * 4
                                         val costeMensualOptimo = costeTotal * 7 * 4
                                         val costeMensualCaro = (precioMasCaro / 1000f) * consumoTotalMensual
-
                                         val ahorroEstimado = costeMensualCaro - costeMensualOptimo
+                                        val facturaMensualMedia = 60f
+                                        val porcentajeAhorro = (ahorroEstimado / facturaMensualMedia) * 100
 
-
-                                        Column {
-                                            mejorHora.forEach { (hora, _) ->
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                                Text(
-                                                    "\uD83D\uDD5B Hora sugerida: $hora",
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    fontWeight = FontWeight.SemiBold
-                                                )
-                                            }
-
-                                            Spacer(modifier = Modifier.height(8.dp))
-
-                                            Text(
-                                                text = "\uD83D\uDCB6 Coste estimado total: %.3f €".format(costeTotal),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = Color(0xFF388E3C),
-                                                fontWeight = FontWeight.Medium
-                                            )
-
-                                            if (ahorroEstimado > 0.01f) {
-                                                Text(
-                                                    text = "■ Si pusieras tu ${consumo.name} 7 días a la semana durante 1 mes en hora correcta,\nahorrarías aproximadamente %.2f € respecto a usarla en la hora más cara.".format(ahorroEstimado),
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = Color(0xFF00796B),
-                                                    modifier = Modifier.padding(top = 4.dp)
-                                                )
-                                            }
-
-                                            Spacer(modifier = Modifier.height(8.dp))
+                                        resultado.forEach { (hora, precio) ->
+                                            Text("🕒 Hora sugerida: $hora (%.1f cts/kWh)".format(precio * 100), fontWeight = FontWeight.SemiBold)
                                         }
 
-                                    } else {
-                                        Text("Introduce un consumo válido o espera precios.", style = MaterialTheme.typography.bodyMedium)
+
+
+                                        Text(
+                                            text = "💶 Coste estimado: %.3f €".format(costeTotal),
+                                            fontSize = 14.sp,
+                                            color = Color(0xFF388E3C),
+                                            fontWeight = FontWeight.Medium,
+                                            modifier = Modifier.padding(top = 6.dp)
+                                        )
+                                        if (ahorroEstimado > 0.01f) {
+                                            Surface(
+                                                color = Color(0xFFDFF5E3),
+                                                shape = RoundedCornerShape(8.dp),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(top = 8.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Si pusieras tu ${consumo.name} 7 días a la semana durante 1 mes en hora correcta,\n" +
+                                                            "ahorrarías aproximadamente %.2f € respecto a usarla en la hora más cara.".format(ahorroEstimado) +
+                                                            "Eso representa un %.1f%% de una factura media mensual de 60 €.".format(ahorroEstimado, porcentajeAhorro),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = Color.Black,
+                                                    modifier = Modifier.padding(12.dp)
+                                                )
+                                            }
+                                        }
+
+
+
                                     }
-
-
                                 }
-
-
                             }
                         }
                     }

@@ -233,7 +233,37 @@ class OptimizationViewModel(
             }
 
         return when (estrategia) {
-            "Hora más barata" -> {
+
+
+
+            "Top 3 horas más baratas" -> {
+                val top = horasValidas.sortedBy { it.value }.take(3).sortedBy {
+                    LocalDateTime.parse(it.datetime, formatter)
+                }
+                calcularCosteDesdeHoras(top, formatter, salida, minutosUso, potenciaW)
+            }
+
+            "Hora más cercana/barata" -> {
+                val ahoraHora = ahora.hour
+
+                // 1. Filtrar solo las horas iguales o posteriores a la actual
+                val futuras = horasValidas.filter {
+                    val horaObj = LocalDateTime.parse(it.datetime, formatter)
+                    horaObj.hour >= ahoraHora
+                }
+
+                // 2. Buscar la más barata entre las horas futuras
+                val inicio = futuras.minByOrNull { it.value }
+
+                if (inicio != null) {
+                    val desdeIndice = hourlyPrices.value.indexOfFirst { it.datetime == inicio.datetime }
+                    if (desdeIndice != -1) {
+                        val sublista = hourlyPrices.value.drop(desdeIndice)
+                        calcularCosteDesdeHoras(sublista, formatter, salida, minutosUso, potenciaW)
+                    } else emptyList()
+                } else emptyList()
+            }
+            "Hora más barata del día" -> {
                 horasValidas
                     .sortedBy { it.value }
                     .firstOrNull()
@@ -246,20 +276,9 @@ class OptimizationViewModel(
                     } ?: emptyList()
             }
 
-            "Top 3 horas más baratas" -> {
-                val top = horasValidas.sortedBy { it.value }.take(3).sortedBy {
-                    LocalDateTime.parse(it.datetime, formatter)
-                }
-                calcularCosteDesdeHoras(top, formatter, salida, minutosUso, potenciaW)
-            }
 
-            "Hora más cercana" -> {
-                val ahoraHora = ahora.hour
-                val proximas = horasValidas.filter {
-                    LocalDateTime.parse(it.datetime, formatter).hour >= ahoraHora
-                }
-                calcularCosteDesdeHoras(proximas, formatter, salida, minutosUso, potenciaW)
-            }
+
+
 
             "Evitar horas punta (18:00–21:00)" -> {
                 val fueraDePunta = horasValidas.filter {
