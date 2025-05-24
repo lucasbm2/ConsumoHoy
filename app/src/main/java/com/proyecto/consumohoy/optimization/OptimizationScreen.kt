@@ -1,10 +1,12 @@
 package com.proyecto.consumohoy.optimization
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
@@ -153,6 +155,7 @@ fun OptimizationScreen(
                                 Text("Nombre: ${consumo.name}", style = MaterialTheme.typography.bodyMedium)
                                 Text("Potencia: ${consumo.power} W", style = MaterialTheme.typography.bodyMedium)
                                 Text("Prioridad: ${consumo.priority}", style = MaterialTheme.typography.bodyMedium)
+                                Text("Uso: ${consumo.usageMinutes} minutos", style = MaterialTheme.typography.bodyMedium)
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     val estrategias = listOf(
                                         "Hora más barata",
@@ -199,32 +202,60 @@ fun OptimizationScreen(
                                         }
                                     }
 
-                                    val energiaKwh = consumo.power.toFloatOrNull() ?: 0f  // ya está en kWh
+                                    val energiaKwh = consumo.power.toFloat() ?: 0f  // ya está en kWh
                                     val mejorHora = if (energiaKwh > 0f) viewModel.calcularHoraOptimizada(
                                         estrategiaSeleccionada,
                                         consumo.priority,
-                                        energiaKwh
+                                        energiaKwh,
+                                        consumo.usageMinutes
                                     ) else null
 
 
 
                                     if (mejorHora != null && mejorHora.isNotEmpty()) {
-                                        mejorHora.forEach { (hora, coste) ->
+                                        val costeTotal: Float = mejorHora.sumOf { it.second.toDouble() }.toFloat()
+
+                                        val horaMasCara = hourlyPrices.maxByOrNull { it.value }
+                                        val precioMasCaro = horaMasCara?.value ?: 0f
+                                        val consumoTotalMensual = consumo.power / 1000f * (consumo.usageMinutes / 60f) * 7 * 4 // kWh en 1 mes
+
+                                        val costeMensualOptimo = costeTotal * 7 * 4
+                                        val costeMensualCaro = (precioMasCaro / 1000f) * consumoTotalMensual
+
+                                        val ahorroEstimado = costeMensualCaro - costeMensualOptimo
+
+
+                                        Column {
+                                            mejorHora.forEach { (hora, _) ->
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Text(
+                                                    "\uD83D\uDD5B Hora sugerida: $hora",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.SemiBold
+                                                )
+                                            }
+
                                             Spacer(modifier = Modifier.height(8.dp))
-                                            Text(
-                                                "🔍 Hora sugerida: $hora (%.1f céntimos/hora)".format(coste * 100),
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.SemiBold
-                                            )
-
 
                                             Text(
-                                                text = "💶 Coste estimado: %.3f €".format(coste),
+                                                text = "\uD83D\uDCB6 Coste estimado total: %.3f €".format(costeTotal),
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 color = Color(0xFF388E3C),
                                                 fontWeight = FontWeight.Medium
                                             )
+
+                                            if (ahorroEstimado > 0.01f) {
+                                                Text(
+                                                    text = "■ Si pusieras tu ${consumo.name} 7 días a la semana durante 1 mes en hora correcta,\nahorrarías aproximadamente %.2f € respecto a usarla en la hora más cara.".format(ahorroEstimado),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = Color(0xFF00796B),
+                                                    modifier = Modifier.padding(top = 4.dp)
+                                                )
+                                            }
+
+                                            Spacer(modifier = Modifier.height(8.dp))
                                         }
+
                                     } else {
                                         Text("Introduce un consumo válido o espera precios.", style = MaterialTheme.typography.bodyMedium)
                                     }

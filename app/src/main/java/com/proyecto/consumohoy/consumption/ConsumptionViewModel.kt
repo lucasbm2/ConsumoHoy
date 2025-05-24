@@ -1,6 +1,5 @@
 package com.proyecto.consumohoy.consumption
 
-
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.proyecto.consumohoy.database.ConsumptionDao
@@ -10,14 +9,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-//Gestionar lógica pantalla de consumo
+// Gestionar lógica pantalla de consumo
 class ConsumptionViewModel(private val dao: ConsumptionDao) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ConsumptionUser())
-    //StateFlow para el formulario de consumo de energía
     val uiState: StateFlow<ConsumptionUser> = _uiState
 
-    // Lista de todos los consumos
     private val _consumptionList = MutableStateFlow<List<ConsumptionEntry>>(emptyList())
     val consumptionList: StateFlow<List<ConsumptionEntry>> = _consumptionList
 
@@ -25,7 +22,6 @@ class ConsumptionViewModel(private val dao: ConsumptionDao) : ViewModel() {
         loadAll()
     }
 
-    // Cargar todos los consumos
     private fun loadAll() {
         viewModelScope.launch {
             _consumptionList.value = dao.getAll()
@@ -34,28 +30,31 @@ class ConsumptionViewModel(private val dao: ConsumptionDao) : ViewModel() {
 
     fun onNameChange(value: String) = _uiState.update { it.copy(name = value) }
     fun onPowerChange(value: String) = _uiState.update { it.copy(power = value) }
+    fun onUsageMinutesChange(value: String) = _uiState.update { it.copy(usageMinutes = value) }
     fun onPriorityChange(value: String) = _uiState.update { it.copy(priority = value) }
 
-    // Guardar un nuevo consumo
     fun saveEntry() {
         val current = _uiState.value
         viewModelScope.launch {
+            val powerFloat = current.power.toFloatOrNull() ?: 0f
+            val minutesInt = current.usageMinutes.toIntOrNull() ?: 60
+
             if (current.id != null) {
-                // Actualizar entrada existente
                 dao.update(
                     ConsumptionEntry(
                         id = current.id,
                         name = current.name,
-                        power = current.power,
+                        power = powerFloat,
+                        usageMinutes = minutesInt,
                         priority = current.priority
                     )
                 )
             } else {
-                // Insertar nuevo
                 dao.insert(
                     ConsumptionEntry(
                         name = current.name,
-                        power = current.power,
+                        power = powerFloat,
+                        usageMinutes = minutesInt,
                         priority = current.priority
                     )
                 )
@@ -65,8 +64,6 @@ class ConsumptionViewModel(private val dao: ConsumptionDao) : ViewModel() {
         }
     }
 
-
-    // Borrar
     fun deleteEntry(entry: ConsumptionEntry) {
         viewModelScope.launch {
             dao.delete(entry)
@@ -74,12 +71,12 @@ class ConsumptionViewModel(private val dao: ConsumptionDao) : ViewModel() {
         }
     }
 
-    // Editar (carga los datos en el formulario para modificar)
     fun editEntry(entry: ConsumptionEntry) {
         _uiState.value = ConsumptionUser(
-            id = entry.id, // Guardamos el ID
+            id = entry.id,
             name = entry.name,
-            power = entry.power,
+            power = entry.power.toString(),               // CORREGIDO
+            usageMinutes = entry.usageMinutes.toString(), // CORREGIDO
             priority = entry.priority
         )
     }

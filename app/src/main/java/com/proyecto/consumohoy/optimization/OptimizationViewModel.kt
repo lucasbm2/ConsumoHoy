@@ -9,6 +9,22 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import android.util.Log
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import com.proyecto.consumohoy.conexion.ApiService
 import com.proyecto.consumohoy.entities.Value
 import java.time.LocalDate
@@ -99,7 +115,7 @@ class OptimizationViewModel(
                 val fechaHoy = LocalDate.now()
                 val fechaStr = fechaHoy.toString()
 
-                val startDateTime ="${fechaStr}T00:00"
+                val startDateTime = "${fechaStr}T00:00"
                 val endDateTime = "${fechaStr}T23:59"
 
                 val response = apiService.obtenerPrecios(
@@ -114,12 +130,21 @@ class OptimizationViewModel(
                 }
 
                 val pvpcEstimadoApi = response.included?.firstOrNull {
-                    it.id.contains("pvpc-estimado", ignoreCase = true) || it.type.contains("pvpc-estimado", ignoreCase = true)
+                    it.id.contains(
+                        "pvpc-estimado",
+                        ignoreCase = true
+                    ) || it.type.contains("pvpc-estimado", ignoreCase = true)
                 }
 
                 val pvpcRealApi = response.included?.firstOrNull {
-                    (it.id.contains("pvpc", ignoreCase = true) && !it.id.contains("pvpc-estimado", ignoreCase = true)) ||
-                            (it.type.contains("pvpc", ignoreCase = true) && !it.type.contains("pvpc-estimado", ignoreCase = true))
+                    (it.id.contains("pvpc", ignoreCase = true) && !it.id.contains(
+                        "pvpc-estimado",
+                        ignoreCase = true
+                    )) ||
+                            (it.type.contains(
+                                "pvpc",
+                                ignoreCase = true
+                            ) && !it.type.contains("pvpc-estimado", ignoreCase = true))
                 }
 
                 // Aquí se prioriza correctamente el orden deseado
@@ -141,7 +166,10 @@ class OptimizationViewModel(
                     }
 
                     estimadoGuardado?.attributes?.values?.isNotEmpty() == true -> {
-                        Log.d("OptimizationViewModel", "🟢 Usando PVPC ESTIMADO desde SharedPreferences")
+                        Log.d(
+                            "OptimizationViewModel",
+                            "🟢 Usando PVPC ESTIMADO desde SharedPreferences"
+                        )
                         estimadoGuardado.attributes.values to "PVPC-estimado (Local)"
                     }
 
@@ -180,19 +208,22 @@ class OptimizationViewModel(
     fun calcularHoraOptimizada(
         estrategia: String,
         prioridad: String,
-        potenciaW: Float // 👈 ahora se pasa directamente la potencia en W
+        potenciaW: Float,
+        minutosUso: Int
     ): List<Pair<String, Float>> {
         val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US)
         val salida = DateTimeFormatter.ofPattern("HH:mm")
 
-        val consumoKwh = potenciaW / 1000f // 👈 conversión W → kWh
+        val consumoKwh = potenciaW / 1000f
 
         val ahora = LocalDateTime.now()
         val horasValidas = hourlyPrices.value
             .filter { value ->
                 val hora = try {
                     LocalDateTime.parse(value.datetime, formatter).hour
-                } catch (e: Exception) { return@filter false }
+                } catch (e: Exception) {
+                    return@filter false
+                }
 
                 when (prioridad.uppercase()) {
                     "ALTA" -> hora in 7..22
@@ -202,79 +233,83 @@ class OptimizationViewModel(
             }
 
         return when (estrategia) {
-            "Hora más barata" -> horasValidas.minByOrNull { it.value }?.let {
-                listOf(salida.format(LocalDateTime.parse(it.datetime, formatter)) to (it.value / 1000f) * consumoKwh)
-            } ?: emptyList()
-
-            "Top 3 horas más baratas" -> horasValidas
-                .sortedBy { it.value }
-                .take(3)
-                .map {
-                    salida.format(LocalDateTime.parse(it.datetime, formatter)) to (it.value / 1000f) * consumoKwh
-                }
-
-            "Hora más cercana" -> {
+            "Hora más barata" -> {
                 horasValidas
-                    .filter {
-                        try {
-                            val h = LocalDateTime.parse(it.datetime, formatter).hour
-                            h >= ahora.hour // Solo para "Hora más cercana"
-                        } catch (e: Exception) { false }
-                    }
-                    .minByOrNull { it.value }
-                    ?.let {
-                        listOf(salida.format(LocalDateTime.parse(it.datetime, formatter)) to (it.value / 1000f) * consumoKwh)
+                    .sortedBy { it.value }
+                    .firstOrNull()
+                    ?.let { inicio ->
+                        val desdeIndice = hourlyPrices.value.indexOfFirst { it.datetime == inicio.datetime }
+                        if (desdeIndice != -1) {
+                            val sublista = hourlyPrices.value.drop(desdeIndice)
+                            calcularCosteDesdeHoras(sublista, formatter, salida, minutosUso, potenciaW)
+                        } else emptyList()
                     } ?: emptyList()
             }
 
-            "Evitar horas punta (18:00–21:00)" -> horasValidas
-                .filter {
-                    val hora = try {
-                        LocalDateTime.parse(it.datetime, formatter).hour
-                    } catch (e: Exception) { return@filter false }
-                    hora !in 18..20
+            "Top 3 horas más baratas" -> {
+                val top = horasValidas.sortedBy { it.value }.take(3).sortedBy {
+                    LocalDateTime.parse(it.datetime, formatter)
                 }
-                .minByOrNull { it.value }
-                ?.let {
-                    listOf(salida.format(LocalDateTime.parse(it.datetime, formatter)) to (it.value / 1000f) * consumoKwh)
+                calcularCosteDesdeHoras(top, formatter, salida, minutosUso, potenciaW)
+            }
+
+            "Hora más cercana" -> {
+                val ahoraHora = ahora.hour
+                val proximas = horasValidas.filter {
+                    LocalDateTime.parse(it.datetime, formatter).hour >= ahoraHora
+                }
+                calcularCosteDesdeHoras(proximas, formatter, salida, minutosUso, potenciaW)
+            }
+
+            "Evitar horas punta (18:00–21:00)" -> {
+                val fueraDePunta = horasValidas.filter {
+                    val h = LocalDateTime.parse(it.datetime, formatter).hour
+                    h !in 18..20
+                }.sortedBy { it.value }
+
+                fueraDePunta.firstOrNull()?.let { inicio ->
+                    val desdeIndice = hourlyPrices.value.indexOfFirst { it.datetime == inicio.datetime }
+                    if (desdeIndice != -1) {
+                        val sublista = hourlyPrices.value.drop(desdeIndice)
+                        calcularCosteDesdeHoras(sublista, formatter, salida, minutosUso, potenciaW)
+                    } else emptyList()
                 } ?: emptyList()
+            }
 
-            "2 horas baratas consecutivas" -> calcularMejorVentana(horasValidas, 2, ahora, formatter, salida, consumoKwh)
+            else -> {
+                val consecutivas = horasValidas
+                    .sortedBy { LocalDateTime.parse(it.datetime, formatter) }
 
-            "3 horas baratas consecutivas" -> calcularMejorVentana(horasValidas, 3, ahora, formatter, salida, consumoKwh)
+                calcularCosteDesdeHoras(consecutivas, formatter, salida, minutosUso, potenciaW)
+            }
+        }}
 
-            "5 horas baratas consecutivas" -> calcularMejorVentana(horasValidas, 5, ahora, formatter, salida, consumoKwh)
-
-            else -> emptyList()
-        }
-    }
-
-    // Función auxiliar para calcular las ventanas consecutivas
-    private fun calcularMejorVentana(
-        horasValidas: List<Value>,
-        ventanaSize: Int,
-        ahora: LocalDateTime,
+    private fun calcularCosteDesdeHoras(
+        horasDesdeInicio: List<Value>,
         formatter: DateTimeFormatter,
         salida: DateTimeFormatter,
-        consumoKwh: Float
+        minutosUso: Int,
+        potenciaW: Float
     ): List<Pair<String, Float>> {
-        var mejorVentana: List<Value>? = null
-        var menorSuma = Float.MAX_VALUE
+        val consumoPorMinuto = potenciaW / 1000f / 60f
+        val lista = mutableListOf<Pair<String, Float>>()
+        var minutosRestantes = minutosUso
 
-        val ventanas = horasValidas.windowed(ventanaSize)
-        for (ventana in ventanas) {
-            if (ventana.size < ventanaSize) continue
-            if (LocalDateTime.parse(ventana.last().datetime, formatter) < ahora) continue // Saltar ventanas pasadas
-            val suma = ventana.sumOf { it.value.toDouble() }.toFloat()
-            if (suma < menorSuma) {
-                menorSuma = suma
-                mejorVentana = ventana
-            }
+        for (hora in horasDesdeInicio) {
+            if (minutosRestantes <= 0) break
+
+            val minutosEnEstaHora = if (minutosRestantes >= 60) 60 else minutosRestantes
+            val consumoKwh = consumoPorMinuto * minutosEnEstaHora
+            val coste = (hora.value / 1000f) * consumoKwh
+            val horaStr = salida.format(LocalDateTime.parse(hora.datetime, formatter))
+
+            lista.add(horaStr to coste)
+            minutosRestantes -= minutosEnEstaHora
         }
 
-        return mejorVentana?.map {
-            val horaStr = salida.format(LocalDateTime.parse(it.datetime, formatter))
-            horaStr to (it.value / 1000f) * consumoKwh
-        } ?: emptyList()
+        return lista
     }
+
+
+
 }

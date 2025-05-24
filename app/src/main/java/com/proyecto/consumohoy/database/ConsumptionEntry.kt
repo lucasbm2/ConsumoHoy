@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 data class ConsumptionEntry(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val name: String,
-    val power: String,
-    val priority: String
+    val power: Float, //en W
+    val priority: String,
+    val usageMinutes: Int //por defecto
 )

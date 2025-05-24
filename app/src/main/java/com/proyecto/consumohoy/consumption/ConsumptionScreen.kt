@@ -3,9 +3,11 @@ package com.proyecto.consumohoy.consumption
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
@@ -20,6 +22,7 @@ fun ConsumptionScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val priorityOptions = listOf("Alta", "Media", "Baja")
+    var minutosUso by remember { mutableStateOf("60") }
 
     Scaffold(
         topBar = {
@@ -54,6 +57,15 @@ fun ConsumptionScreen(
                 )
             }
 
+            item {
+                OutlinedTextField(
+                    value = uiState.usageMinutes,
+                    onValueChange = { viewModel.onUsageMinutesChange(it) },
+                    label = { Text("Minutos de uso") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
             item {
                 ExposedDropdownMenuBox(
                     expanded = expanded.value,
