@@ -2,16 +2,24 @@ package com.proyecto.consumohoy.datosprecios
 
 import android.content.Context
 import android.util.Log
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.proyecto.consumohoy.R
 import com.proyecto.consumohoy.conexion.DatosPreciosViewModel
@@ -21,22 +29,21 @@ import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.LocalTime
 import java.util.Locale
+import androidx.compose.material3.TextFieldDefaults
+
+
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
-    //Actualizar datos automaticamente al recibir datos de la API
     val datos by viewModel.datos.collectAsState()
-
-    //Si no hay respuesta, intentar de nuevo recibir los datos
     var connectionTimedOut by remember { mutableStateOf(false) }
     var retryConnection by remember { mutableStateOf(false) }
 
-    //Para que si es despues de las 20, se muestre el precio de mañana
     val now = LocalTime.now()
     val fechaBase = if (now.hour >= 20) LocalDate.now().plusDays(1) else LocalDate.now()
 
-    //Funcion para calcular el precio con impuestos
     fun calcularPrecioConImpuestos(valorOriginal: Float): Double {
         val peaje = 0.05
         val iva = 0.010
@@ -44,14 +51,11 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
         return baseMasPeaje * (1 + iva)
     }
 
-    //Context para acceder a SharedPreferences para guardar precios
     val context = LocalContext.current
 
-    //Recibir datos de la API y guardarlos en datos
     LaunchedEffect(retryConnection) {
         connectionTimedOut = false
         val fechaStr = fechaBase.toString()
-        Log.d("ScreenPriceData", "Pidiendo datos de fecha: $fechaStr")
         viewModel.getPrices(
             context,
             "${fechaStr}T00:00",
@@ -60,12 +64,10 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
         )
     }
 
-    //Formato de fecha para la API
     val formatterAPI = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US)
     val formatterDate = SimpleDateFormat("dd/MM/yyyy", Locale.US)
     val formatterHour = SimpleDateFormat("HH:mm", Locale.US)
 
-    //Si no hay datos, intentar de nuevo despues de 5 segundos
     LaunchedEffect(datos, retryConnection) {
         if (datos == null) {
             delay(5000)
@@ -75,6 +77,21 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
         }
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(id = R.drawable.fondo_bombilla),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xCCFFFFFF))
+        )
+
+    }
     //Mostrar datos de la API en pantalla
     Column(modifier = Modifier.padding(16.dp)) {
         when {
@@ -106,8 +123,21 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
             }
 
             else -> {
-                val titlePrincipal = datos!!.data.attributes.title
-                Text(titlePrincipal, style = MaterialTheme.typography.titleLarge)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF0D47A1), shape = RoundedCornerShape(12.dp))
+                        .padding(vertical = 10.dp, horizontal = 16.dp)
+                ) {
+                    Text(
+                        text = datos!!.data.attributes.title,
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        fontFamily = fuenteEjecutiva
+                    )
+                }
+
 
                 val includedMutable = datos!!.included?.toMutableList() ?: mutableListOf()
 
@@ -148,7 +178,6 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                 }
 
 
-
 // Filtramos el tipo 'pvpc-estimado' si hay pvpc real ya
                 val hayPvpcReal = includedMutable.any { inc ->
                     inc.type.equals("pvpc", ignoreCase = true) && inc.attributes.values.isNotEmpty()
@@ -158,7 +187,6 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                 val tiposFiltrados = includedMutable.filterNot {
                     it.type == "pvpc-estimado" && hayPvpcReal
                 }
-
 
 
                 //Obtener todos los tipos de precios disponibles
@@ -214,92 +242,114 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                    ExposedDropdownMenuBox(
+                        expanded = ordenExpanded,
+                        onExpandedChange = { ordenExpanded = !ordenExpanded }
                     ) {
-                        ExposedDropdownMenuBox(
+                        TextField(
+                            value = selectedOrden,
+                            onValueChange = {},
+                            readOnly = true,
+                            modifier = Modifier
+                                .menuAnchor()
+                                .width(200.dp)
+                                .height(65.dp),
+                            label = { Text("Ordenar por", fontSize = 14.sp) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = ordenExpanded) },
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color(0xFFE3F2FD),
+                                unfocusedContainerColor = Color(0xFFE3F2FD),
+                                disabledContainerColor = Color(0xFFE3F2FD),
+                                cursorColor = Color(0xFF0D47A1),
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                disabledIndicatorColor = Color.Transparent,
+                                focusedLabelColor = Color(0xFF0D47A1),
+                                unfocusedLabelColor = Color.Gray
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            textStyle = LocalTextStyle.current.copy(fontSize = 16.sp)
+                        )
+                        ExposedDropdownMenu(
                             expanded = ordenExpanded,
-                            onExpandedChange = { ordenExpanded = !ordenExpanded }
+                            onDismissRequest = { ordenExpanded = false }
                         ) {
-                            TextField(
-                                modifier = Modifier
-                                    .menuAnchor()
-                                    .width(180.dp),
-                                readOnly = true,
-                                value = selectedOrden,
-                                onValueChange = {},
-                                label = { Text("Ordenar por") },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = ordenExpanded) },
-                                colors = ExposedDropdownMenuDefaults.textFieldColors()
-                            )
-                            ExposedDropdownMenu(
-                                expanded = ordenExpanded,
-                                onDismissRequest = { ordenExpanded = false }
-                            ) {
-                                ordenOptions.forEach { orden ->
-                                    DropdownMenuItem(
-                                        text = { Text(orden) },
-                                        onClick = {
-                                            selectedOrden = orden
-                                            ordenExpanded = false
-                                        }
-                                    )
-                                }
+                            ordenOptions.forEach { orden ->
+                                DropdownMenuItem(
+                                    text = { Text(orden) },
+                                    onClick = {
+                                        selectedOrden = orden
+                                        ordenExpanded = false
+                                    }
+                                )
                             }
                         }
+                    }
 
-                        ExposedDropdownMenuBox(
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = !expanded }
+                    ) {
+                        TextField(
+                            value = when (selectedType) {
+                                "precio-mercado" -> "Mercado SPOT"
+                                "pvpc" -> "Tarifa PVPC"
+                                "pvpc-estimado" -> "Tarifa PVPC (estimado)"
+                                else -> selectedType
+                            },
+                            onValueChange = {},
+                            readOnly = true,
+                            modifier = Modifier
+                                .menuAnchor()
+                                .width(200.dp)
+                                .height(65.dp),
+                            label = { Text("Tipo de mercado", fontSize = 12.sp) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color(0xFFE3F2FD),
+                                unfocusedContainerColor = Color(0xFFE3F2FD),
+                                disabledContainerColor = Color(0xFFE3F2FD),
+                                cursorColor = Color(0xFF0D47A1),
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                disabledIndicatorColor = Color.Transparent,
+                                focusedLabelColor = Color(0xFF0D47A1),
+                                unfocusedLabelColor = Color.Gray
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            textStyle = LocalTextStyle.current.copy(fontSize = 16.sp)
+                        )
+                        ExposedDropdownMenu(
                             expanded = expanded,
-                            onExpandedChange = { expanded = !expanded }
+                            onDismissRequest = { expanded = false }
                         ) {
-                            TextField(
-                                modifier = Modifier
-                                    .menuAnchor()
-                                    .width(180.dp),
-                                readOnly = true,
-                                value = when (selectedType) {
-                                    "precio-mercado" -> "Mercado SPOT"
-                                    "pvpc" -> "Tarifa PVPC"
-                                    "pvpc-estimado" -> "Tarifa PVPC (estimado)"
-                                    else -> selectedType
-                                },
-                                onValueChange = {},
-                                label = { Text(stringResource(R.string.pricing_type_label)) },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                                colors = ExposedDropdownMenuDefaults.textFieldColors()
-                            )
-                            ExposedDropdownMenu(
-                                expanded = expanded,
-                                onDismissRequest = { expanded = false }
-                            ) {
-                                allTypes.forEach { tipo ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                when (tipo) {
-                                                    "precio-mercado" -> "Mercado SPOT"
-                                                    "pvpc" -> "Tarifa PVPC"
-                                                    "pvpc-estimado" -> "Tarifa PVPC (estimado)"
-                                                    else -> tipo
-                                                }
-                                            )
-                                        },
-                                        onClick = {
-                                            selectedType = tipo
-                                            expanded = false
-                                        }
-                                    )
-                                }
+                            allTypes.forEach { tipo ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            when (tipo) {
+                                                "precio-mercado" -> "Mercado SPOT"
+                                                "pvpc" -> "Tarifa PVPC"
+                                                "pvpc-estimado" -> "Tarifa PVPC (estimado)"
+                                                else -> tipo
+                                            }
+                                        )
+                                    },
+                                    onClick = {
+                                        selectedType = tipo
+                                        expanded = false
+                                    }
+                                )
                             }
                         }
                     }
                 }
+
+
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -380,7 +430,8 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
 
 
                         // Verificar y agregar las horas faltantes
-                        val valuesWithMissingHours = selectedPricing?.attributes?.values?.toMutableList() ?: mutableListOf()
+                        val valuesWithMissingHours =
+                            selectedPricing?.attributes?.values?.toMutableList() ?: mutableListOf()
                         if (!existingHoursMap.containsKey("00")) {
                             valuesWithMissingHours.add(0, createEmptyHourEntry("00"))
                         }
@@ -423,10 +474,22 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                     val cleanedDateTime = unformattedDateTime.replace(Regex(":(\\d{2})$"), "$1")
                     val parsedDateTime = formatterAPI.parse(cleanedDateTime)
                     formatterDate.format(parsedDateTime)
-                    Text(
-                        "Fecha: $fechaBase",
-                        style = MaterialTheme.typography.headlineMedium
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFE3F2FD), shape = RoundedCornerShape(12.dp))
+                            .padding(vertical = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Fecha: $fechaBase",
+                            fontSize = 20.sp,
+                            color = Color(0xFF0D47A1),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+
                 }
 
 
