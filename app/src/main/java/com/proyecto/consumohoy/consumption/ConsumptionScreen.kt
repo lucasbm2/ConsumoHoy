@@ -1,8 +1,10 @@
 package com.proyecto.consumohoy.consumption
 
+import android.app.Activity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import com.proyecto.consumohoy.R
 import kotlinx.coroutines.launch
 
+// Clase para la pantalla de consumo
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConsumptionScreen(
@@ -37,7 +40,7 @@ fun ConsumptionScreen(
     var ayudaVisible by remember { mutableStateOf(false) }
     var ayudaGeneralVisible by remember { mutableStateOf(false) }
 
-
+// Mostrar imagen de fondo
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
             painter = painterResource(id = R.drawable.fondo_bombilla),
@@ -51,18 +54,40 @@ fun ConsumptionScreen(
                 .background(Color(0xCCFFFFFF))
         )
 
+        // Mostrar contenido
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
+                val context = LocalContext.current
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp, bottom = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, bottom = 8.dp)
+                    ) {
+                        Text(
+                            text = "← Atrás",
+                            fontSize = 16.sp,
+                            color = Color(0xFF0D47A1),
+                            modifier = Modifier
+                                .clickable {
+                                    (context as? Activity)?.onBackPressed()
+                                }
+                                .padding(4.dp)
+                        )
+                    }
+
                     Box(
                         modifier = Modifier
-                            .background(color = Color(0xFF0D47A1), shape = RoundedCornerShape(12.dp))
+                            .background(
+                                color = Color(0xFF0D47A1),
+                                shape = RoundedCornerShape(12.dp)
+                            )
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Text(
@@ -77,6 +102,7 @@ fun ConsumptionScreen(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             modifier = Modifier.fillMaxSize()
         ) { padding ->
+            // Contenido de la pantalla
             LazyColumn(
                 modifier = Modifier
                     .padding(padding)
@@ -112,6 +138,7 @@ fun ConsumptionScreen(
                 }
 
                 item {
+                    // Dropdown para la prioridad
                     ExposedDropdownMenuBox(
                         expanded = expanded.value,
                         onExpandedChange = { expanded.value = !expanded.value }
@@ -125,7 +152,7 @@ fun ConsumptionScreen(
                                 .menuAnchor()
                                 .fillMaxWidth()
                         )
-
+                        // Mostrar opciones de prioridad
                         ExposedDropdownMenu(
                             expanded = expanded.value,
                             onDismissRequest = { expanded.value = false }
@@ -209,7 +236,7 @@ fun ConsumptionScreen(
                             )
                         }
                     }
-                    }
+                }
 
                 // Explicación de las prioridades
                 item {
@@ -220,7 +247,10 @@ fun ConsumptionScreen(
                                 .background(Color(0xFFE3F2FD), shape = RoundedCornerShape(8.dp))
                                 .padding(12.dp)
                         ) {
-                            Text("• Alta: Uso imprescindible o en horarios con luz más barata.", fontSize = 14.sp)
+                            Text(
+                                "• Alta: Uso imprescindible o en horarios con luz más barata.",
+                                fontSize = 14.sp
+                            )
                             Text("• Media: Uso recomendable, pero no urgente.", fontSize = 14.sp)
                             Text("• Baja: Puede posponerse sin problema.", fontSize = 14.sp)
                         }

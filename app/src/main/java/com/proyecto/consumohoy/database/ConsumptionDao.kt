@@ -2,6 +2,7 @@ package com.proyecto.consumohoy.database
 
 import androidx.room.*
 
+// Interfaz para acceder a la base de datos
 @Dao
 interface ConsumptionDao {
     @Insert

@@ -75,8 +75,8 @@ class ConsumptionViewModel(private val dao: ConsumptionDao) : ViewModel() {
         _uiState.value = ConsumptionUser(
             id = entry.id,
             name = entry.name,
-            power = entry.power.toString(),               // CORREGIDO
-            usageMinutes = entry.usageMinutes.toString(), // CORREGIDO
+            power = entry.power.toString(),
+            usageMinutes = entry.usageMinutes.toString(),
             priority = entry.priority
         )
     }

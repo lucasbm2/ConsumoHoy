@@ -14,6 +14,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
 
+//Clase para actualizar precios de PVPC
 class PrecioPvpcWorker(
     private val context: Context,
     workerParams: WorkerParameters

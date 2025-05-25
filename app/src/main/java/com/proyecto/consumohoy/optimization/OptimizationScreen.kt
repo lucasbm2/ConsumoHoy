@@ -22,6 +22,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
+import android.app.Activity
 import com.proyecto.consumohoy.R
 import java.text.SimpleDateFormat
 import java.util.*
@@ -37,10 +39,10 @@ fun OptimizationScreen(viewModel: OptimizationViewModel = viewModel()) {
     val hourFormatter = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
 
     val cardColors = listOf(
-        Color(0xFFE8F5E9), // verde claro
-        Color(0xFFE3F2FD), // azul claro
-        Color(0xFFFFF9C4), // amarillo claro / beige
-        Color(0xFFF3E5F5)  // lila claro
+        Color(0xFFE8F5E9),
+        Color(0xFFE3F2FD),
+        Color(0xFFFFF9C4),
+        Color(0xFFF3E5F5)
     )
 
     var pricesSectionExpanded by remember { mutableStateOf(false) }
@@ -53,9 +55,11 @@ fun OptimizationScreen(viewModel: OptimizationViewModel = viewModel()) {
             modifier = Modifier.fillMaxSize()
         )
 
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xCCFFFFFF)))
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xCCFFFFFF))
+        )
 
         Scaffold(
             containerColor = Color.Transparent,
@@ -66,6 +70,28 @@ fun OptimizationScreen(viewModel: OptimizationViewModel = viewModel()) {
                         .padding(top = 24.dp, bottom = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+
+                    //Botón de retroceso
+                    val context = LocalContext.current
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, bottom = 8.dp)
+                    ) {
+                        Text(
+                            text = "← Atrás",
+                            fontSize = 16.sp,
+                            color = Color(0xFF0D47A1),
+                            modifier = Modifier
+                                .clickable {
+                                    (context as? Activity)?.onBackPressed()
+
+                                }
+                                .padding(4.dp)
+                        )
+                    }
+
+                    // Título principal
                     Box(
                         modifier = Modifier
                             .background(Color(0xFF0D47A1), shape = RoundedCornerShape(12.dp))
@@ -80,6 +106,7 @@ fun OptimizationScreen(viewModel: OptimizationViewModel = viewModel()) {
                     }
                 }
             }
+
         ) { padding ->
             Column(
                 modifier = Modifier
@@ -100,7 +127,10 @@ fun OptimizationScreen(viewModel: OptimizationViewModel = viewModel()) {
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Precios horarios del día ($tipoTarifa)", fontWeight = FontWeight.Medium)
+                            Text(
+                                "Precios horarios del día ($tipoTarifa)",
+                                fontWeight = FontWeight.Medium
+                            )
                             Icon(
                                 imageVector = if (pricesSectionExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
                                 contentDescription = null
@@ -120,9 +150,21 @@ fun OptimizationScreen(viewModel: OptimizationViewModel = viewModel()) {
                                 ) {
                                     itemsIndexed(hourlyPrices) { _, price ->
                                         val timeStr = try {
-                                            val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US)
-                                            hourFormatter.format(fmt.parse(price.datetime.replace("Z", "+0000")))
-                                        } catch (e: Exception) { price.datetime }
+                                            val fmt = SimpleDateFormat(
+                                                "yyyy-MM-dd'T'HH:mm:ss.SSSZ",
+                                                Locale.US
+                                            )
+                                            hourFormatter.format(
+                                                fmt.parse(
+                                                    price.datetime.replace(
+                                                        "Z",
+                                                        "+0000"
+                                                    )
+                                                )
+                                            )
+                                        } catch (e: Exception) {
+                                            price.datetime
+                                        }
 
                                         val kwh = price.value / 1000f
                                         Row(
@@ -130,7 +172,11 @@ fun OptimizationScreen(viewModel: OptimizationViewModel = viewModel()) {
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
                                             Text(timeStr, fontSize = 14.sp)
-                                            Text("%.3f €/kWh".format(kwh), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                            Text(
+                                                "%.3f €/kWh".format(kwh),
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
                                         }
                                     }
                                 }
@@ -219,19 +265,27 @@ fun OptimizationScreen(viewModel: OptimizationViewModel = viewModel()) {
                                     if (resultado.isNullOrEmpty()) {
                                         Text("Introduce datos válidos o espera precios.")
                                     } else {
-                                        val costeTotal = resultado.sumOf { it.second.toDouble() }.toFloat()
+                                        val costeTotal =
+                                            resultado.sumOf { it.second.toDouble() }.toFloat()
                                         val horaMasCara = hourlyPrices.maxByOrNull { it.value }
                                         val precioMasCaro = horaMasCara?.value ?: 0f
 
-                                        val consumoTotalMensual = consumo.power / 1000f * (consumo.usageMinutes / 60f) * 7 * 4
+                                        val consumoTotalMensual =
+                                            consumo.power / 1000f * (consumo.usageMinutes / 60f) * 7 * 4
                                         val costeMensualOptimo = costeTotal * 7 * 4
-                                        val costeMensualCaro = (precioMasCaro / 1000f) * consumoTotalMensual
+                                        val costeMensualCaro =
+                                            (precioMasCaro / 1000f) * consumoTotalMensual
                                         val ahorroEstimado = costeMensualCaro - costeMensualOptimo
                                         val facturaMensualMedia = 60f
-                                        val porcentajeAhorro = (ahorroEstimado / facturaMensualMedia) * 100
+                                        val porcentajeAhorro =
+                                            (ahorroEstimado / facturaMensualMedia) * 100
 
                                         resultado.forEach { (hora, precio) ->
-                                            Text("🕒 Hora sugerida: $hora (%.1f cts/kWh)".format(precio * 100), fontWeight = FontWeight.SemiBold)
+                                            Text(
+                                                "🕒 Hora sugerida: $hora (%.1f cts/kWh)".format(
+                                                    precio * 100
+                                                ), fontWeight = FontWeight.SemiBold
+                                            )
                                         }
 
 
@@ -253,15 +307,19 @@ fun OptimizationScreen(viewModel: OptimizationViewModel = viewModel()) {
                                             ) {
                                                 Text(
                                                     text = "Si pusieras tu ${consumo.name} 7 días a la semana durante 1 mes en hora correcta,\n" +
-                                                            "ahorrarías aproximadamente %.2f € respecto a usarla en la hora más cara.".format(ahorroEstimado) +
-                                                            "Eso representa un %.1f%% de una factura media mensual de 60 €.".format(ahorroEstimado, porcentajeAhorro),
+                                                            "ahorrarías aproximadamente %.2f € respecto a usarla en la hora más cara.".format(
+                                                                ahorroEstimado
+                                                            ) +
+                                                            "Eso representa un %.1f%% de una factura media mensual de 60 €.".format(
+                                                                ahorroEstimado,
+                                                                porcentajeAhorro
+                                                            ),
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = Color.Black,
                                                     modifier = Modifier.padding(12.dp)
                                                 )
                                             }
                                         }
-
 
 
                                     }

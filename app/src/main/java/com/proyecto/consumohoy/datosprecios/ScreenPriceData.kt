@@ -1,9 +1,11 @@
 package com.proyecto.consumohoy.datosprecios
 
+import android.app.Activity
 import android.content.Context
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,8 +34,7 @@ import java.util.Locale
 import androidx.compose.material3.TextFieldDefaults
 
 
-
-
+//Funcion
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
@@ -53,6 +54,7 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
 
     val context = LocalContext.current
 
+    // Si retryConnection es true, volver a cargar los datos
     LaunchedEffect(retryConnection) {
         connectionTimedOut = false
         val fechaStr = fechaBase.toString()
@@ -68,6 +70,7 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
     val formatterDate = SimpleDateFormat("dd/MM/yyyy", Locale.US)
     val formatterHour = SimpleDateFormat("HH:mm", Locale.US)
 
+    // Si datos es nulo, volver a cargar los datos
     LaunchedEffect(datos, retryConnection) {
         if (datos == null) {
             delay(5000)
@@ -123,20 +126,44 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
             }
 
             else -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF0D47A1), shape = RoundedCornerShape(12.dp))
-                        .padding(vertical = 10.dp, horizontal = 16.dp)
-                ) {
-                    Text(
-                        text = datos!!.data.attributes.title,
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        fontFamily = fuenteEjecutiva
-                    )
+                val activity = LocalContext.current as? Activity
+
+                Column {
+                    // Botón Atrás
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 8.dp, bottom = 8.dp)
+                    ) {
+                        Text(
+                            text = "← Atrás",
+                            fontSize = 16.sp,
+                            color = Color(0xFF0D47A1),
+                            modifier = Modifier
+                                .clickable {
+                                    activity?.onBackPressed()
+                                }
+                                .padding(4.dp)
+                        )
+                    }
+
+                    // Título azul
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF0D47A1), shape = RoundedCornerShape(12.dp))
+                            .padding(vertical = 10.dp, horizontal = 16.dp)
+                    ) {
+                        Text(
+                            text = datos!!.data.attributes.title,
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            fontFamily = fuenteEjecutiva
+                        )
+                    }
                 }
+
 
 
                 val includedMutable = datos!!.included?.toMutableList() ?: mutableListOf()
@@ -164,7 +191,7 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                         )
                     )
 
-// ⬇️ Añade esto inmediatamente DESPUÉS del val estimado
+
                     val gson = com.google.gson.Gson()
                     val prefs = context.getSharedPreferences("precios", Context.MODE_PRIVATE)
                     val json = gson.toJson(estimado)
@@ -290,6 +317,7 @@ fun ScreenPriceData(viewModel: DatosPreciosViewModel = viewModel()) {
                         }
                     }
 
+                    //Tipo de mercado
                     ExposedDropdownMenuBox(
                         expanded = expanded,
                         onExpandedChange = { expanded = !expanded }

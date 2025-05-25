@@ -13,7 +13,7 @@
     <string name="pricing_type_label">Mercado: </string>
     <string name="pricing_type">Mercado: %1$s</string>
     <string name="princing_value">Valor: %1$.2f€/MWh</string>
-    <string name="price_hour_kw">Precio por hora: %1$.3f€/hora</string>
+    <string name="price_hour_kw">Precio por hora: %1$.3f€/kWh</string>
     <string name="hour">Hora: %1$s</string>
     <string name="hour_load_error">Error al cargar: %1$s</string>"
     <string name="connection_timed_out">Error al conectarse a internet</string>

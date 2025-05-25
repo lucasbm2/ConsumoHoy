@@ -3,6 +3,7 @@ package com.proyecto.consumohoy.database
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+// Clase para representar una entrada de consumo en la base de datos
 @Entity(tableName = "consumption_entries")
 data class ConsumptionEntry(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,

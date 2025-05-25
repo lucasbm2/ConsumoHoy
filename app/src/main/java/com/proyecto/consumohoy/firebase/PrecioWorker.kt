@@ -90,7 +90,7 @@ class PrecioWorker(
                 includedMutable.add(pvpcEstimado)
 
 
-                Log.i("PrecioWorker", "🟡 PVPC estimado añadido a included")
+                Log.i("PrecioWorker", "PVPC estimado añadido a included")
 
 // Guardar en SharedPreferences
                 val gson = com.google.gson.Gson()
@@ -100,7 +100,7 @@ class PrecioWorker(
                     .putString("pvpc_estimado_fecha", fechaBase.toString())
                     .apply()
 
-                Log.i("PrecioWorker", "🟡 PVPC estimado guardado en SharedPreferences")
+                Log.i("PrecioWorker", "PVPC estimado guardado en SharedPreferences")
 
 
                 // Actualizamos pvpcValores para usarlo más abajo

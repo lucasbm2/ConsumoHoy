@@ -32,6 +32,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+//Clase ViewModel para la optimización de consumo
 class OptimizationViewModel(
     private val consumptionDao: ConsumptionDao,
     private val apiService: ApiService, // Para obtener precios horarios desde la API
@@ -156,32 +157,32 @@ class OptimizationViewModel(
 
                 val (hourlyValues, fuente) = when {
                     pvpcRealApi?.attributes?.values?.isNotEmpty() == true -> {
-                        Log.d("OptimizationViewModel", "✅ Usando PVPC REAL desde API")
+                        Log.d("OptimizationViewModel", "Usando PVPC REAL desde API")
                         pvpcRealApi.attributes.values to "PVPC"
                     }
 
                     pvpcEstimadoApi?.attributes?.values?.isNotEmpty() == true -> {
-                        Log.d("OptimizationViewModel", "🟡 Usando PVPC ESTIMADO desde API")
+                        Log.d("OptimizationViewModel", " Usando PVPC ESTIMADO desde API")
                         pvpcEstimadoApi.attributes.values to "PVPC-estimado (API)"
                     }
 
                     estimadoGuardado?.attributes?.values?.isNotEmpty() == true -> {
                         Log.d(
                             "OptimizationViewModel",
-                            "🟢 Usando PVPC ESTIMADO desde SharedPreferences"
+                            "Usando PVPC ESTIMADO desde SharedPreferences"
                         )
                         estimadoGuardado.attributes.values to "PVPC-estimado (Local)"
                     }
 
                     else -> {
-                        Log.e("OptimizationViewModel", "❌ No se encontraron datos PVPC válidos")
+                        Log.e("OptimizationViewModel", "No se encontraron datos PVPC válidos")
                         emptyList<Value>() to "Desconocido"
                     }
                 }
 
                 _hourlyPrices.value = hourlyValues
                 _tarifaFuente.value = fuente
-// --- LOGGING PARA DEPURACIÓN DETALLADA ---
+
                 Log.d("OptimizationViewModel", "Datos de la API recibidos:")
                 if (hourlyValues.isEmpty()) {
                     Log.d("OptimizationViewModel", "  La lista de precios está vacía.")
@@ -193,7 +194,6 @@ class OptimizationViewModel(
                         )
                     }
                 }
-// --- FIN LOGGING ---
             } catch (e: Exception) {
                 Log.e("OptimizationViewModel", "Error al obtener precios horarios desde la API", e)
                 _hourlyPrices.value = emptyList()

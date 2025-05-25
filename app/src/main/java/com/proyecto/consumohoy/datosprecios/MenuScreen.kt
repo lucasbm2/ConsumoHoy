@@ -31,13 +31,13 @@ val fuenteEjecutiva = FontFamily(
     Font(resId = R.font.poppins_regular)
 )
 
+//Pantalla principal
 @Composable
 fun MenuScreen(navController: NavHostController) {
     val frases = listOf(
-        "Tu asistente diario para el ahorro energético",
-        "Toma el control de tu consumo eléctrico",
+        "Tu asistente diario para el ahorro",
+        "Toma el control de tu consumo",
         "Ahorra sin esfuerzo, cada día",
-        "Elige las mejores horas para consumir luz",
         "Tu consumo, bajo control y con sentido",
         "Pequeños cambios, grandes ahorros",
         "Consume cuando es más barato",
@@ -56,7 +56,7 @@ fun MenuScreen(navController: NavHostController) {
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Imagen de fondo
+        //Imagen de fondo
         Image(
             painter = painterResource(id = R.drawable.fondo_bombilla),
             contentDescription = null,
@@ -64,7 +64,7 @@ fun MenuScreen(navController: NavHostController) {
             contentScale = ContentScale.Crop
         )
 
-        // Capa blanca translúcida
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -77,11 +77,11 @@ fun MenuScreen(navController: NavHostController) {
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 🔝 Frase rotativa
+            //Frase que cambia
             Box(
                 modifier = Modifier
                     .background(
-                        color = Color(0xFFBBDEFB), // Azul claro (puedes cambiar)
+                        color = Color(0xFFBBDEFB),
                         shape = RoundedCornerShape(12.dp)
                     )
                     .padding(horizontal = 16.dp, vertical = 6.dp)
@@ -91,12 +91,11 @@ fun MenuScreen(navController: NavHostController) {
                     fontFamily = fuenteEjecutiva,
                     fontWeight = FontWeight.Medium,
                     fontSize = 14.sp,
-                    color = Color(0xFF0D47A1) // Azul oscuro del texto
+                    color = Color(0xFF0D47A1)
                 )
             }
             Spacer(modifier = Modifier.height(32.dp))
 
-            // 🔷 Título + Icono
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -156,7 +155,7 @@ fun MenuScreen(navController: NavHostController) {
                 onClick = { navController.navigate(com.proyecto.composecatalog.navigation.OptimizationScreen) }
             )
 
-            Spacer(modifier = Modifier.height(32.dp)) // margen inferior
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }

@@ -3,6 +3,7 @@ package com.proyecto.consumohoy.database
 import android.content.Context
 import androidx.room.Room
 
+// Clase para obtener la instancia de la base de datos
 object DatabaseProvider {
 
     @Volatile
