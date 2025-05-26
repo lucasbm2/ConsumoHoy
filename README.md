@@ -36,3 +36,10 @@ El proyecto nace de una inquietud personal por mejorar la economía doméstica, 
 1. Clona el repositorio:
    ```bash
    git clone https://github.com/tu-usuario/consumohoy.git
+
+2. Nota: Próximamente la aplicación estará disponible públicamente en Google Play.
+Actualmente, puedes solicitar acceso como tester interno a través del siguiente enlace:
+
+[Unirse como tester interno](https://play.google.com/apps/internaltest/4701721834206816087)
+
+Posteriormente, puedes [realizar la descarga aquí](https://play.google.com/store/apps/details?id=com.proyecto.consumohoy)
