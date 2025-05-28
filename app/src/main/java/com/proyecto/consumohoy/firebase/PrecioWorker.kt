@@ -123,15 +123,6 @@ class PrecioWorker(
                 "fecha desconocida"
             }
 
-            //Si no hay precios de SPOT, no lanzamos notificacion
-            if (spotValue != null) {
-                NotificationHelper.showNotification(
-                    context,
-                    "Precio diario actualizado (SPOT)",
-                    "Datos de: $spotFechaFormateada"
-                )
-                prefs.edit().putFloat("spot", spotValue).apply()
-            }
 
             // PVPCValue es el último precio del PVPC (estimado o real)
             val pvpcValue = pvpcValores?.lastOrNull()?.value?.toFloat()
@@ -149,8 +140,9 @@ class PrecioWorker(
             if (pvpcValue != null) {
                 NotificationHelper.showNotification(
                     context,
-                    "Precio diario actualizado (PVPC)",
-                    "Datos de: $fechaFormateada"
+                    "Precios diarios actualizados",
+                    "¡Optimiza tu consumo ahora! " +
+                            "Día: $fechaFormateada"
                 )
                 prefs.edit().putFloat("pvpc", pvpcValue).apply()
             }

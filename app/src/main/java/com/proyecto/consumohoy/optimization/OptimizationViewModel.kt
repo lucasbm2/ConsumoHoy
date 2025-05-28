@@ -5,37 +5,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.proyecto.consumohoy.database.ConsumptionDao
 import com.proyecto.consumohoy.database.ConsumptionEntry
+import com.proyecto.consumohoy.entities.Value
+import com.proyecto.consumohoy.conexion.ApiService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import android.util.Log
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import com.proyecto.consumohoy.conexion.ApiService
-import com.proyecto.consumohoy.entities.Value
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
-import java.util.Locale
+import java.util.*
 
-//Clase ViewModel para la optimización de consumo
 class OptimizationViewModel(
     private val consumptionDao: ConsumptionDao,
-    private val apiService: ApiService, // Para obtener precios horarios desde la API
+    private val apiService: ApiService,
     private val context: Context
 ) : ViewModel() {
 
@@ -45,7 +29,6 @@ class OptimizationViewModel(
     private val _latestPrices = MutableStateFlow<Map<String, Float>>(emptyMap())
     val latestPrices: StateFlow<Map<String, Float>> = _latestPrices
 
-    // --- StateFlow para la lista COMPLETA de precios HORARIOS ---
     private val _hourlyPrices = MutableStateFlow<List<Value>>(emptyList())
     val hourlyPrices: StateFlow<List<Value>> = _hourlyPrices
 
@@ -55,24 +38,19 @@ class OptimizationViewModel(
     private val _tarifaFuente = MutableStateFlow<String>("")
     val tarifaFuente: StateFlow<String> = _tarifaFuente
 
-
     init {
         loadConsumptions()
         loadLatestPrices()
-        loadHourlyPrices() // <--  Ahora llama a la función unificada
+        loadHourlyPrices()
     }
 
     private fun loadConsumptions() {
         viewModelScope.launch {
             try {
                 _consumptionList.value = consumptionDao.getAll()
-                Log.d(
-                    "OptimizationViewModel",
-                    "Consumos cargados: ${_consumptionList.value.size} items"
-                )
             } catch (e: Exception) {
-                Log.e("OptimizationViewModel", "Error loading consumptions from DAO", e)
                 _consumptionList.value = emptyList()
+                Log.e("OptimizationViewModel", "Error loading consumptions", e)
             }
         }
     }
@@ -85,24 +63,12 @@ class OptimizationViewModel(
                 val latestPvpc = prefs.getFloat("pvpc", -1f)
 
                 val pricesMap = mutableMapOf<String, Float>()
-                if (latestSpot != -1f && latestSpot != 0f) {
-                    pricesMap["SPOT"] = latestSpot / 1000f
-                }
-                if (latestPvpc != -1f && latestPvpc != 0f) {
-                    pricesMap["PVPC"] = latestPvpc / 1000f
-                }
+                if (latestSpot > 0f) pricesMap["SPOT"] = latestSpot / 1000f
+                if (latestPvpc > 0f) pricesMap["PVPC"] = latestPvpc / 1000f
 
                 _latestPrices.value = pricesMap
-                Log.d(
-                    "OptimizationViewModel",
-                    "Precios recientes cargados (SharedPreferences): $_latestPrices"
-                )
             } catch (e: Exception) {
-                Log.e(
-                    "OptimizationViewModel",
-                    "Error loading recent prices from SharedPreferences",
-                    e
-                )
+                Log.e("OptimizationViewModel", "Error loading recent prices", e)
             }
         }
     }
@@ -113,69 +79,43 @@ class OptimizationViewModel(
             _hourlyPrices.value = emptyList()
 
             try {
-                val fechaHoy = LocalDate.now()
-                val fechaStr = fechaHoy.toString()
-
-                val startDateTime = "${fechaStr}T00:00"
-                val endDateTime = "${fechaStr}T23:59"
+                val ahora = LocalTime.now()
+                val fechaHoy = if (ahora.hour >= 20) LocalDate.now().plusDays(1).toString() else LocalDate.now().toString()
 
                 val response = apiService.obtenerPrecios(
-                    startDate = startDateTime,
-                    endDate = endDateTime,
+                    startDate = "${fechaHoy}T00:00",
+                    endDate = "${fechaHoy}T23:59",
                     timeTrunc = "hour"
                 )
 
-                // Debug para ver los tipos reales
-                response.included?.forEach {
-                    Log.d("DEBUG_API", "🔍 ID: ${it.id}, TYPE: ${it.type}")
-                }
-
-                val pvpcEstimadoApi = response.included?.firstOrNull {
-                    it.id.contains(
-                        "pvpc-estimado",
-                        ignoreCase = true
-                    ) || it.type.contains("pvpc-estimado", ignoreCase = true)
-                }
-
                 val pvpcRealApi = response.included?.firstOrNull {
-                    (it.id.contains("pvpc", ignoreCase = true) && !it.id.contains(
-                        "pvpc-estimado",
-                        ignoreCase = true
-                    )) ||
-                            (it.type.contains(
-                                "pvpc",
-                                ignoreCase = true
-                            ) && !it.type.contains("pvpc-estimado", ignoreCase = true))
+                    it.id.contains("pvpc", ignoreCase = true) &&
+                            !it.id.contains("pvpc-estimado", ignoreCase = true)
                 }
 
-                // Aquí se prioriza correctamente el orden deseado
+
                 val prefs = context.getSharedPreferences("precios", Context.MODE_PRIVATE)
                 val gson = com.google.gson.Gson()
                 val estimadoGuardado = prefs.getString("pvpc_estimado_json", null)?.let {
                     gson.fromJson(it, com.proyecto.consumohoy.entities.Included::class.java)
                 }
 
+                val hoy = fechaHoy
+                fun esDeHoy(datetime: String?): Boolean {
+                    return datetime?.substring(0, 10) == hoy
+                }
+
+                val esHoyPvpcReal = pvpcRealApi?.attributes?.values?.any { esDeHoy(it.datetime) } == true
+               val esHoyEstimadoGuardado = estimadoGuardado?.attributes?.values?.any { esDeHoy(it.datetime) } == true
+
                 val (hourlyValues, fuente) = when {
-                    pvpcRealApi?.attributes?.values?.isNotEmpty() == true -> {
-                        Log.d("OptimizationViewModel", "Usando PVPC REAL desde API")
-                        pvpcRealApi.attributes.values to "PVPC"
+                    esHoyPvpcReal -> {
+                        pvpcRealApi!!.attributes.values to "Precio mercado PVPC"
                     }
-
-                    pvpcEstimadoApi?.attributes?.values?.isNotEmpty() == true -> {
-                        Log.d("OptimizationViewModel", " Usando PVPC ESTIMADO desde API")
-                        pvpcEstimadoApi.attributes.values to "PVPC-estimado (API)"
+                    esHoyEstimadoGuardado -> {
+                        estimadoGuardado!!.attributes.values to "Tarifa PVPC (estimado)"
                     }
-
-                    estimadoGuardado?.attributes?.values?.isNotEmpty() == true -> {
-                        Log.d(
-                            "OptimizationViewModel",
-                            "Usando PVPC ESTIMADO desde SharedPreferences"
-                        )
-                        estimadoGuardado.attributes.values to "PVPC-estimado (Local)"
-                    }
-
                     else -> {
-                        Log.e("OptimizationViewModel", "No se encontraron datos PVPC válidos")
                         emptyList<Value>() to "Desconocido"
                     }
                 }
@@ -183,21 +123,10 @@ class OptimizationViewModel(
                 _hourlyPrices.value = hourlyValues
                 _tarifaFuente.value = fuente
 
-                Log.d("OptimizationViewModel", "Datos de la API recibidos:")
-                if (hourlyValues.isEmpty()) {
-                    Log.d("OptimizationViewModel", "  La lista de precios está vacía.")
-                } else {
-                    hourlyValues.forEach { value ->
-                        Log.d(
-                            "OptimizationViewModel",
-                            "  Hora: ${value.datetime}, Valor: ${value.value}, Percentage: ${value.percentage}"
-                        )
-                    }
-                }
             } catch (e: Exception) {
-                Log.e("OptimizationViewModel", "Error al obtener precios horarios desde la API", e)
+                Log.e("OptimizationViewModel", "Error al obtener precios horarios", e)
                 _hourlyPrices.value = emptyList()
-                _tarifaFuente.value = "Error" // O un valor por defecto que indique el error
+                _tarifaFuente.value = "Error"
             } finally {
                 _hourlyPricesLoading.value = false
             }
@@ -215,27 +144,22 @@ class OptimizationViewModel(
         val salida = DateTimeFormatter.ofPattern("HH:mm")
 
         val consumoKwh = potenciaW / 1000f
-
         val ahora = LocalDateTime.now()
-        val horasValidas = hourlyPrices.value
-            .filter { value ->
-                val hora = try {
-                    LocalDateTime.parse(value.datetime, formatter).hour
-                } catch (e: Exception) {
-                    return@filter false
-                }
-
-                when (prioridad.uppercase()) {
-                    "ALTA" -> hora in 7..22
-                    "MEDIA" -> hora in 6..23
-                    else -> true
-                }
+        val horasValidas = hourlyPrices.value.filter {
+            val hora = try {
+                LocalDateTime.parse(it.datetime, formatter).hour
+            } catch (e: Exception) {
+                return@filter false
             }
 
+            when (prioridad.uppercase()) {
+                "ALTA" -> hora in 7..22
+                "MEDIA" -> hora in 6..23
+                else -> true
+            }
+        }
+
         return when (estrategia) {
-
-
-
             "Top 3 horas más baratas" -> {
                 val top = horasValidas.sortedBy { it.value }.take(3).sortedBy {
                     LocalDateTime.parse(it.datetime, formatter)
@@ -245,14 +169,9 @@ class OptimizationViewModel(
 
             "Hora más cercana/barata" -> {
                 val ahoraHora = ahora.hour
-
-                // 1. Filtrar solo las horas iguales o posteriores a la actual
                 val futuras = horasValidas.filter {
-                    val horaObj = LocalDateTime.parse(it.datetime, formatter)
-                    horaObj.hour >= ahoraHora
+                    LocalDateTime.parse(it.datetime, formatter).hour >= ahoraHora
                 }
-
-                // 2. Buscar la más barata entre las horas futuras
                 val inicio = futuras.minByOrNull { it.value }
 
                 if (inicio != null) {
@@ -263,22 +182,16 @@ class OptimizationViewModel(
                     } else emptyList()
                 } else emptyList()
             }
+
             "Hora más barata del día" -> {
-                horasValidas
-                    .sortedBy { it.value }
-                    .firstOrNull()
-                    ?.let { inicio ->
-                        val desdeIndice = hourlyPrices.value.indexOfFirst { it.datetime == inicio.datetime }
-                        if (desdeIndice != -1) {
-                            val sublista = hourlyPrices.value.drop(desdeIndice)
-                            calcularCosteDesdeHoras(sublista, formatter, salida, minutosUso, potenciaW)
-                        } else emptyList()
-                    } ?: emptyList()
+                horasValidas.sortedBy { it.value }.firstOrNull()?.let { inicio ->
+                    val desdeIndice = hourlyPrices.value.indexOfFirst { it.datetime == inicio.datetime }
+                    if (desdeIndice != -1) {
+                        val sublista = hourlyPrices.value.drop(desdeIndice)
+                        calcularCosteDesdeHoras(sublista, formatter, salida, minutosUso, potenciaW)
+                    } else emptyList()
+                } ?: emptyList()
             }
-
-
-
-
 
             "Evitar horas punta (18:00–21:00)" -> {
                 val fueraDePunta = horasValidas.filter {
@@ -296,12 +209,13 @@ class OptimizationViewModel(
             }
 
             else -> {
-                val consecutivas = horasValidas
-                    .sortedBy { LocalDateTime.parse(it.datetime, formatter) }
-
+                val consecutivas = horasValidas.sortedBy {
+                    LocalDateTime.parse(it.datetime, formatter)
+                }
                 calcularCosteDesdeHoras(consecutivas, formatter, salida, minutosUso, potenciaW)
             }
-        }}
+        }
+    }
 
     private fun calcularCosteDesdeHoras(
         horasDesdeInicio: List<Value>,
@@ -316,19 +230,14 @@ class OptimizationViewModel(
 
         for (hora in horasDesdeInicio) {
             if (minutosRestantes <= 0) break
-
             val minutosEnEstaHora = if (minutosRestantes >= 60) 60 else minutosRestantes
             val consumoKwh = consumoPorMinuto * minutosEnEstaHora
             val coste = (hora.value / 1000f) * consumoKwh
             val horaStr = salida.format(LocalDateTime.parse(hora.datetime, formatter))
-
             lista.add(horaStr to coste)
             minutosRestantes -= minutosEnEstaHora
         }
 
         return lista
     }
-
-
-
 }
