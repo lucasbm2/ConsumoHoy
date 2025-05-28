@@ -17,8 +17,8 @@ android {
         applicationId = "com.proyecto.consumohoy"
         minSdk = 29
         targetSdk = 34
-        versionCode = 8
-        versionName = "3.4"
+        versionCode = 9
+        versionName = "3.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
