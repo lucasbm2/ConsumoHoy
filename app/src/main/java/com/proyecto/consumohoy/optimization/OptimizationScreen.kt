@@ -282,7 +282,7 @@ fun OptimizationScreen(viewModel: OptimizationViewModel = viewModel()) {
 
                                         resultado.forEach { (hora, precio) ->
                                             Text(
-                                                "🕒 Hora sugerida: $hora (%.1f cts/kWh)".format(
+                                                "🕒 Hora sugerida: $hora ".format(
                                                     precio * 100
                                                 ), fontWeight = FontWeight.SemiBold
                                             )
